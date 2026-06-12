@@ -57,7 +57,7 @@ export default function Home() {
 			padding: "20px",
 		}}>
 			<h1 style={{ fontSize: "1.5rem", marginBottom: "24px", fontWeight: 600 }}>
-				Backend Connection Tester
+				Backend Connection Tester.
 			</h1>
 
 			<div style={{ display: "flex", gap: "8px", width: "100%", maxWidth: "600px" }}>
