@@ -133,3 +133,26 @@ export default function Home() {
     </section>
 	);
 }
+
+
+// Separate component to handle per-icon transforms
+function ParallaxIcon({ item, mouseX, mouseY }: { item: any, mouseX: any, mouseY: any }) {
+  // Move opposite to mouse direction for depth effect
+  const x = useTransform(mouseX, [-1, 1], [-item.depth, item.depth]);
+  const y = useTransform(mouseY, [-1, 1], [-item.depth, item.depth]);
+
+  return (
+    <motion.div
+      className="absolute text-slate-400 dark:text-slate-800 transition-colors duration-300 pointer-events-none"
+      style={{
+        left: item.left,
+        top: item.top,
+        rotate: item.rotate,
+        x,
+        y,
+      }}
+    >
+      <item.Icon size={item.size} strokeWidth={1.5} />
+    </motion.div>
+  );
+}
