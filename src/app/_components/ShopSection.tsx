@@ -163,8 +163,8 @@ export default function ShopSection() {
             ]);
 
             if (productsReq.ok && categoriesReq.ok) {
-                const productsData = await productsReq.json();
-                const categoriesData = await categoriesReq.json();
+                const productsData: any = await productsReq.json();
+                const categoriesData: any = await categoriesReq.json();
                 setProducts(productsData.data || productsData);
                 setCategories(categoriesData.data || categoriesData);
             }
@@ -254,7 +254,7 @@ export default function ShopSection() {
                 setIsModalOpen(false);
                 setNewProduct({ name: "", price: "", description: "", image: "", category: "", stock: "", rating: "", lastMonthSales: "", brand: "", modelName: "", couponCode: "", discountPercentage: "" });
             } else {
-                const errData = await res.json();
+                const errData: any = await res.json();
                 showToast(errData.msg || 'Failed to add product', 'error');
             }
         } catch (error: any) {
