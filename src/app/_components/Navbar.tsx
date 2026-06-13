@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Sun, Moon, ShoppingBag, ChevronRight, User, LogOut, ChevronDown, Package, Settings } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { BASE_URL } from "@/config";
+import api from "@/lib/api";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -94,15 +94,9 @@ export default function Navbar() {
 
     const fetchCategories = async () => {
       try {
-        const response = await fetch(`${BASE_URL}/categories`);
-
-        if (response.ok) {
-          const data: any = await response.json();
-          // if your api returns { data: [...] } layout, or directly [...]
-          const categoriesData = data.data || data;
-          console.log("Navbar: Fetched categories:", categoriesData);
-          setCategories(categoriesData);
-        }
+        const { data } = await api.get('/categories');
+        console.log("Navbar: Fetched categories:", data);
+        setCategories(data?.data || data || []);
       } catch (error) {
         console.error("Navbar: Failed to fetch categories", error);
       }

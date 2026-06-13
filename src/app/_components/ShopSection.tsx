@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { HardHat, Bell, Plus, X, Image as ImageIcon, Tag, DollarSign, Loader2, ShoppingBag, Search, Filter, Star, TrendingUp, Layers, ChevronDown, ChevronRight } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BASE_URL } from "@/config";
+import api from "@/lib/api";
 
 interface Category {
     _id: string;
@@ -157,17 +157,12 @@ export default function ShopSection() {
 
     const fetchProducts = async () => {
         try {
-            const [productsReq, categoriesReq] = await Promise.all([
-                fetch(`${BASE_URL}/products`),
-                fetch(`${BASE_URL}/categories`)
+            const [productsRes, categoriesRes] = await Promise.all([
+                api.get('/products'),
+                api.get('/categories')
             ]);
-
-            if (productsReq.ok && categoriesReq.ok) {
-                const productsData: any = await productsReq.json();
-                const categoriesData: any = await categoriesReq.json();
-                setProducts(productsData.data || productsData);
-                setCategories(categoriesData.data || categoriesData);
-            }
+            setProducts(productsRes.data?.data || productsRes.data);
+            setCategories(categoriesRes.data?.data || categoriesRes.data);
         } catch (error) {
             console.error("Failed to fetch data", error);
         } finally {
@@ -233,33 +228,26 @@ export default function ShopSection() {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            const res = await fetch(`${BASE_URL}/products`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...newProduct,
-                    price: Number(newProduct.price),
-                    stock: Number(newProduct.stock),
-                    rating: Number(newProduct.rating) || 0,
-                    lastMonthSales: Number(newProduct.lastMonthSales) || 0,
-                    brand: newProduct.brand,
-                    modelName: newProduct.modelName,
-                    couponCode: newProduct.couponCode || undefined,
-                    discountPercentage: Number(newProduct.discountPercentage) || 0
-                })
+            const res = await api.post('/products', {
+                ...newProduct,
+                price: Number(newProduct.price),
+                stock: Number(newProduct.stock),
+                rating: Number(newProduct.rating) || 0,
+                lastMonthSales: Number(newProduct.lastMonthSales) || 0,
+                brand: newProduct.brand,
+                modelName: newProduct.modelName,
+                couponCode: newProduct.couponCode || undefined,
+                discountPercentage: Number(newProduct.discountPercentage) || 0
             });
 
-            if (res.ok) {
+            if (res.status === 200 || res.status === 201) {
                 fetchProducts();
                 setIsModalOpen(false);
                 setNewProduct({ name: "", price: "", description: "", image: "", category: "", stock: "", rating: "", lastMonthSales: "", brand: "", modelName: "", couponCode: "", discountPercentage: "" });
-            } else {
-                const errData: any = await res.json();
-                showToast(errData.msg || 'Failed to add product', 'error');
             }
         } catch (error: any) {
             console.error("Failed to add product", error);
-            showToast('Failed to add product', 'error');
+            showToast(error.response?.data?.msg || 'Failed to add product', 'error');
         } finally {
             setIsSubmitting(false);
         }
