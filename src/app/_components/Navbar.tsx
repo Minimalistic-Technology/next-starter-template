@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Sun, Moon, ShoppingBag, ChevronRight, User, LogOut, ChevronDown, Package, Settings } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { BASE_URL } from "@/config";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -93,9 +94,7 @@ export default function Navbar() {
 
     const fetchCategories = async () => {
       try {
-        // NEXT_PUBLIC_API_URL me apka render.com ka backend url jayega 
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const response = await fetch(`${baseUrl}/categories`);
+        const response = await fetch(`${BASE_URL}/categories`);
 
         if (response.ok) {
           const data: any = await response.json();
