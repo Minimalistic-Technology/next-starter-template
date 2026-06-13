@@ -9,6 +9,7 @@ import { Suspense } from "react";
 import WhoWeAre from "./_components/WhoWeAre";
 import WhatWeOffer from "./_components/WhatWeOffer";
 import ShopSection from "./_components/ShopSection";
+import Contact from "./_components/Contact";
 
 export default function Home() {
   const router = useRouter();
@@ -140,6 +141,7 @@ export default function Home() {
       <Suspense fallback={<div>Loading products...</div>}>
         <ShopSection />
       </Suspense>
+      <Contact />
     </main>
   );
 }
