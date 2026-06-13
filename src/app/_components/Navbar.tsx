@@ -92,8 +92,21 @@ export default function Navbar() {
     window.addEventListener("scroll", handleScroll);
 
     const fetchCategories = async () => {
-      // Mocked to remove api dependency
-      setCategories([]);
+      try {
+        // NEXT_PUBLIC_API_URL me apka render.com ka backend url jayega 
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const response = await fetch(`${baseUrl}/categories`);
+
+        if (response.ok) {
+          const data: any = await response.json();
+          // if your api returns { data: [...] } layout, or directly [...]
+          const categoriesData = data.data || data;
+          console.log("Navbar: Fetched categories:", categoriesData);
+          setCategories(categoriesData);
+        }
+      } catch (error) {
+        console.error("Navbar: Failed to fetch categories", error);
+      }
     };
     fetchCategories();
 
