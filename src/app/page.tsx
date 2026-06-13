@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowRight, Sparkles, Hammer, Wrench, Settings, Drill } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import WhoWeAre from "./_components/WhoWeAre";
+import WhatWeOffer from "./_components/WhatWeOffer";
 
 export default function Home() {
   const router = useRouter();
@@ -133,6 +134,7 @@ export default function Home() {
         </div>
       </section>
       <WhoWeAre />
+      <WhatWeOffer />
     </main>
   );
 }
