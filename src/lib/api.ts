@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',
-  withCredentials: true,
+  baseURL: 'https://uat-dd.onrender.com',
+  withCredentials: false,
   timeout: 20000,
 });
 
