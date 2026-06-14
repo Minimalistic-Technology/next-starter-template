@@ -64,10 +64,11 @@ const SignupForm = () => {
                 return;
             }
 
-            if (!resCheck.data.signupAllowed) {
-                showToast("Public registration is currently disabled by administrator.", "error");
-                return;
-            }
+            // Force signup to be active temporarily for testing as requested
+            // if (!resCheck.data.signupAllowed) {
+            //     showToast("Public registration is currently disabled by administrator.", "error");
+            //     return;
+            // }
 
             // Send OTP
             if (resCheck.data.otpRequired !== false) {
