@@ -3,7 +3,7 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: 'https://uat-dd.onrender.com',
   withCredentials: false,
-  timeout: 20000,
+  timeout: 60000, // Render free tier spins down and takes 40+ seconds to wake up initially
 });
 
 // Add a request interceptor to handle path prefixes and logging
