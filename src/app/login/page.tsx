@@ -17,6 +17,16 @@ const LoginForm = () => {
             delete payload.email;
         }
         await api.post('/auth/login', payload);
+        try {
+            const meRes = await api.get('/auth/me');
+            const userData = meRes.data?.data || meRes.data;
+            if (userData?.role === 'admin' || userData?.role === 'staff') {
+                router.push('/admin');
+                return;
+            }
+        } catch (err) {
+            console.error("Could not fetch user role during login redirect", err);
+        }
         router.push('/');
     };
 
