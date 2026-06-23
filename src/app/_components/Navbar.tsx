@@ -6,13 +6,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Sun, Moon, ShoppingBag, ChevronRight, User, LogOut, ChevronDown, Package, Settings } from "lucide-react";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { cn } from "@/lib/utils";
+import LoadingBar from "./LoadingBar";
 import api from "@/lib/api";
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { useAuth } from "../_context/AuthContext";
+import { useCart } from "../_context/CartContext";
+import { useDynamicRoutes } from "../_context/RouteContext";
 
 // Helper component for recursive category rendering
 const CategoryItem = ({ category, allCategories, depth = 0 }: { category: any, allCategories: any[], depth?: number }) => {
@@ -66,10 +65,9 @@ const CategoryItem = ({ category, allCategories, depth = 0 }: { category: any, a
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
   // ... existing hooks
-  const user: any = null;
-  const logout = () => { };
-  const cartCount = 0;
-  const isRouteActive = (route: string) => true;
+  const { user, logout } = useAuth();
+  const { cartCount } = useCart(); // Cart Context Hook
+  const { isRouteActive } = useDynamicRoutes();
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -96,7 +94,7 @@ export default function Navbar() {
       try {
         const { data } = await api.get('/categories');
         console.log("Navbar: Fetched categories:", data);
-        setCategories(data?.data || data || []);
+        setCategories(data);
       } catch (error) {
         console.error("Navbar: Failed to fetch categories", error);
       }
@@ -225,12 +223,9 @@ export default function Navbar() {
     return currentHash === id;
   };
 
-  if (pathname === '/login' || pathname === '/signup') {
-    return null;
-  }
-
   return (
     <>
+      <LoadingBar />
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
