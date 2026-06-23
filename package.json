@@ -12,6 +12,7 @@
 		"publish": true
 	},
 	"dependencies": {
+		"@marsidev/react-turnstile": "^1.5.3",
 		"@opennextjs/cloudflare": "1.14.0",
 		"axios": "^1.17.0",
 		"clsx": "^2.1.1",

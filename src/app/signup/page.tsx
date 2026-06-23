@@ -6,8 +6,9 @@ import Link from "next/link";
 import { User, Mail, Lock, Loader2, ArrowRight, Phone, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import ReCAPTCHA from "react-google-recaptcha";
+import { Turnstile } from "@marsidev/react-turnstile";
 import api from "@/lib/api";
+import { TURNSTILE_SITE_KEY } from "@/config";
 
 const SignupForm = () => {
     const checkUser = async () => { };
@@ -278,10 +279,10 @@ const SignupForm = () => {
                                 </div>
 
                                 <div className="flex justify-center mt-2 mb-2 pt-4">
-                                    <ReCAPTCHA
-                                        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
-                                        onChange={(token: string | null) => setRecaptchaToken(token)}
-                                        theme="light"
+                                    <Turnstile
+                                        siteKey={TURNSTILE_SITE_KEY}
+                                        onSuccess={(token: string) => setRecaptchaToken(token)}
+                                        options={{ theme: 'light' }}
                                     />
                                 </div>
 
