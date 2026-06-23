@@ -38,7 +38,7 @@ export default function BlogsView(props: any) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                {blogsList.map(blog => (
+                                {blogsList.map((blog: any) => (
                                     <tr key={blog._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
                                         <td className="p-4">
                                             <div className="font-medium text-slate-900 dark:text-white line-clamp-1 max-w-xs">{blog.title}</div>

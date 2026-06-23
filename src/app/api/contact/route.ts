@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
+        const body = (await request.json()) as any;
         const { firstName, lastName, email, message } = body;
 
         // Validate required fields
