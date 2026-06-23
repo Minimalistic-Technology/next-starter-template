@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HardHat, Bell, Plus, X, Image as ImageIcon, Tag, DollarSign, Loader2, ShoppingBag, Search, Filter, Star, TrendingUp, Layers, ChevronDown, ChevronRight } from "lucide-react";
+import { useAuth } from "../_context/AuthContext";
+import { useCart } from "../_context/CartContext";
+import { useToast } from "../_context/ToastContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api";
@@ -120,9 +123,9 @@ const SidebarCategoryItem = ({
 };
 
 export default function ShopSection() {
-    const user: any = null;
-    const addToCart = async (id: string) => { };
-    const showToast = (msg: string, type: string) => alert(msg);
+    const { user } = useAuth();
+    const { addToCart } = useCart();
+    const { showToast } = useToast();
     const router = useRouter();
     const searchParams = useSearchParams();
     const initialCategory = searchParams.get('category') || "All";
@@ -161,8 +164,8 @@ export default function ShopSection() {
                 api.get('/products'),
                 api.get('/categories')
             ]);
-            setProducts(productsRes.data?.data || productsRes.data);
-            setCategories(categoriesRes.data?.data || categoriesRes.data);
+            setProducts(productsRes.data);
+            setCategories(categoriesRes.data);
         } catch (error) {
             console.error("Failed to fetch data", error);
         } finally {

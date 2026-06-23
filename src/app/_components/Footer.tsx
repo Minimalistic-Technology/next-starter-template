@@ -2,33 +2,12 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Facebook, Twitter, Instagram, Linkedin, Hammer, Check } from "lucide-react";
-import { useState } from "react";
-import api from "@/lib/api";
+import { Facebook, Twitter, Instagram, Linkedin, Hammer } from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
   const router = useRouter();
   const pathname = usePathname();
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-
-  const handleSubscribe = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    setStatus("loading");
-    try {
-      await api.post("/newsletter", { email });
-      setStatus("success");
-      setEmail("");
-      setTimeout(() => setStatus("idle"), 3000);
-    } catch (err) {
-      // Fallback 
-      setStatus("success");
-      setEmail("");
-      setTimeout(() => setStatus("idle"), 3000);
-    }
-  };
 
   const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     const sectionPaths = ["/shop", "/who", "/what", "/contact"];
@@ -101,25 +80,16 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-6">Stay Updated</h4>
             <p className="text-slate-400 text-sm mb-4">Subscribe for latest tool launches.</p>
-            <form onSubmit={handleSubscribe} className="flex">
+            <div className="flex">
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email..."
-                required
-                className="bg-slate-900 border border-slate-700 rounded-l-lg px-4 py-2 text-sm w-full outline-none focus:border-teal-500 text-white"
-                disabled={status === "loading" || status === "success"}
+                className="bg-slate-900 border border-slate-700 rounded-l-lg px-4 py-2 text-sm w-full outline-none focus:border-teal-500"
               />
-              <button
-                type="submit"
-                disabled={status === "loading" || status === "success"}
-                className={`px-4 rounded-r-lg text-white transition-colors flex items-center justify-center min-w-[50px] ${status === "success" ? "bg-emerald-600" : "bg-teal-600 hover:bg-teal-700"
-                  }`}
-              >
-                {status === "loading" ? "..." : status === "success" ? <Check className="size-4" /> : <Hammer className="size-4" />}
+              <button className="bg-teal-600 hover:bg-teal-700 px-4 rounded-r-lg text-white">
+                <Hammer className="size-4" />
               </button>
-            </form>
+            </div>
           </div>
         </div>
 

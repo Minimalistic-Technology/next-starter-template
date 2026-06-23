@@ -4,10 +4,11 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, Send, MessageSquare } from "lucide-react";
+import { useAuth } from "../_context/AuthContext";
 import api from "@/lib/api";
 
 const Contact: React.FC = () => {
-    const user: any = null;
+    const { user } = useAuth();
     const [formState, setFormState] = useState<"idle" | "submitting" | "success" | "error">("idle");
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

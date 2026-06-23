@@ -223,6 +223,10 @@ export default function Navbar() {
     return currentHash === id;
   };
 
+  if (pathname === '/login' || pathname === '/signup') {
+    return <LoadingBar />;
+  }
+
   return (
     <>
       <LoadingBar />

@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "../../_context/AuthContext";
+import { useCart } from "../../_context/CartContext";
 import { Loader2, Star, ShoppingBag, Truck, ShieldCheck, ArrowLeft, Tag, Layers, TrendingUp, X, Maximize2, MessageCircle } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
+import { useDynamicRoutes } from "../../_context/RouteContext";
 
 interface Product {
     _id: string;
@@ -29,22 +32,7 @@ interface Product {
 export default function ProductDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
-
-    const addToCart = async (productId: string) => {
-        try {
-            await api.post('/cart', { productId, quantity: 1 });
-            alert('Added to cart!');
-        } catch (e: any) {
-            if (e?.response?.status === 401) {
-                router.push('/login');
-            } else {
-                alert('Failed to add to cart. Please log in.');
-            }
-        }
-    };
-
-    const isRouteActive = (route: string) => true;
-
+    const { addToCart } = useCart();
     const [product, setProduct] = useState<Product | null>(null);
     const [selectedImage, setSelectedImage] = useState<string>("");
     const [coupons, setCoupons] = useState<any[]>([]);
@@ -52,6 +40,7 @@ export default function ProductDetailsPage() {
     const [isProductCouponActive, setIsProductCouponActive] = useState(false);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+    const { isRouteActive } = useDynamicRoutes();
 
     useEffect(() => {
         const fetchData = async () => {

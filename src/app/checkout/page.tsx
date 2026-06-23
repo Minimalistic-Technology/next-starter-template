@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useCart } from "../_context/CartContext";
+import { useAuth } from "../_context/AuthContext";
+import { useToast } from "../_context/ToastContext";
 import { useRouter } from "next/navigation";
 import { CreditCard, Banknote, CheckCircle, Loader2, Tag, Trash2, Smartphone, Lock, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,31 +11,10 @@ import Link from "next/link";
 import api from "@/lib/api";
 
 export default function CheckoutPage() {
+    const { cartItems, totalPrice, clearCart, appliedCoupon, subtotal, applyCoupon, removeCoupon, loading: cartLoading } = useCart();
+    const { user, loading, checkUser } = useAuth();
+    const { showToast } = useToast();
     const router = useRouter();
-    const showToast = (msg: string, type: string) => alert(msg);
-
-    // Cart state from API
-    const [cartItems, setCartItems] = useState<any[]>([]);
-    const [cartLoading, setCartLoading] = useState(true);
-    const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
-    const subtotal = cartItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
-    const totalPrice = subtotal - (appliedCoupon?.discountAmount || 0);
-    const applyCoupon = async (code: string) => {
-        try { const res = await api.post('/coupons/apply', { code, cartItems }); setAppliedCoupon(res.data); return { success: true, message: 'Coupon applied!' }; }
-        catch (e: any) { return { success: false, message: e.response?.data?.msg || 'Invalid coupon' }; }
-    };
-    const removeCoupon = () => setAppliedCoupon(null);
-    const clearCart = async () => { try { await api.delete('/cart'); setCartItems([]); } catch { } };
-
-    // Auth state from API
-    const [user, setUser] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const checkUser = async () => { try { const r = await api.get('/auth/me'); setUser(r.data.data || r.data); } catch { setUser(null); } };
-    useEffect(() => {
-        checkUser().finally(() => setLoading(false));
-        api.get('/cart').then(r => setCartItems(r.data?.items || [])).catch(() => setCartItems([])).finally(() => setCartLoading(false));
-    }, []);
-
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [isAccountCreated, setIsAccountCreated] = useState(false);

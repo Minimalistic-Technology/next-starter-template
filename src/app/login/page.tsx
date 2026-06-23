@@ -4,34 +4,17 @@ import React, { useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Mail, Lock, Loader2, ArrowRight, AlertTriangle } from "lucide-react";
+import { useAuth } from "../_context/AuthContext";
+import { useToast } from "../_context/ToastContext";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import api from "@/lib/api";
+import { useDynamicRoutes } from "../_context/RouteContext";
 
 const LoginForm = () => {
+    const { login } = useAuth();
     const router = useRouter();
-    const login = async (id: string, pass: string) => {
-        const payload: any = { email: id, password: pass };
-        if (/^\d+$/.test(id)) {
-            payload.phone = id;
-            delete payload.email;
-        }
-        await api.post('/auth/login', payload);
-        try {
-            const meRes = await api.get('/auth/me');
-            const userData = meRes.data?.data || meRes.data;
-            if (userData?.role === 'admin' || userData?.role === 'staff') {
-                router.push('/admin');
-                return;
-            }
-        } catch (err) {
-            console.error("Could not fetch user role during login redirect", err);
-        }
-        router.push('/');
-    };
-
-    const showToast = (msg: string, type: string) => alert(msg);
-    const isRouteActive = (route: string) => true;
+    const { showToast } = useToast();
+    const { isRouteActive } = useDynamicRoutes();
 
     const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
@@ -64,10 +47,10 @@ const LoginForm = () => {
             showToast("Logged in successfully", "success");
             // AuthContext automatically redirects to dashboard/home based on role
         } catch (err: any) {
-            const errorMsg = err.response?.data?.msg || err.message || "Invalid credentials";
+            const errorMsg = err.message || err.response?.data?.msg || "Invalid credentials";
 
             // Extract minutes from lockout message
-            if (errorMsg.includes("temporarily locked") || errorMsg.includes("blocked")) {
+            if (errorMsg.includes("temporarily locked")) {
                 const match = errorMsg.match(/after (\d+) minute/);
                 if (match && match[1]) {
                     const minutes = parseInt(match[1], 10);
@@ -79,7 +62,6 @@ const LoginForm = () => {
         } finally {
             setIsLoading(false);
         }
-
     };
 
     return (
