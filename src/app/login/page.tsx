@@ -64,10 +64,10 @@ const LoginForm = () => {
             showToast("Logged in successfully", "success");
             // AuthContext automatically redirects to dashboard/home based on role
         } catch (err: any) {
-            const errorMsg = err.message || err.response?.data?.msg || "Invalid credentials";
+            const errorMsg = err.response?.data?.msg || err.message || "Invalid credentials";
 
             // Extract minutes from lockout message
-            if (errorMsg.includes("temporarily locked")) {
+            if (errorMsg.includes("temporarily locked") || errorMsg.includes("blocked")) {
                 const match = errorMsg.match(/after (\d+) minute/);
                 if (match && match[1]) {
                     const minutes = parseInt(match[1], 10);
@@ -79,6 +79,7 @@ const LoginForm = () => {
         } finally {
             setIsLoading(false);
         }
+
     };
 
     return (

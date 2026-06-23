@@ -34,7 +34,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkUser = async () => {
         try {
             const res = await api.get('/auth/me');
-            setUser(res.data);
+            // Backend returns user directly or wrapped in data
+            const userData = res.data?.data || res.data;
+            setUser(userData);
         } catch (error) {
             console.log("No active session");
             setUser(null);
@@ -44,18 +46,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
-        // Explicitly clear legacy localstorage items to satisfy user request
-        localStorage.removeItem("ddtec_user");
-        localStorage.removeItem("ddtec_token");
-
-        // Check session cookie on mount via /me
+        // Check session on mount (token injected via Authorization header by api.ts interceptor)
         checkUser();
     }, []);
 
     const login = async (email: string, password: string) => {
         try {
             const res = await api.post('/auth/login', { email, password });
-
+            // Token is auto-saved in localStorage by api.ts response interceptor
             setUser(res.data.user);
 
             if (res.data.user.role === 'admin') {
@@ -72,21 +70,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-
-
     const logout = async () => {
         try {
             await api.post('/auth/logout');
         } catch (error) {
             console.error("Logout error", error);
         } finally {
+            // Clear token from localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('ddtec_token');
+            }
             setUser(null);
             router.push("/login");
         }
     };
-
-    // Signup logic is now handled directly in app/signup/page.tsx due to complexity (OTP, etc)
-    // We keep interface clean.
 
     return (
         <AuthContext.Provider value={{ user, login, logout, loading, checkUser }}>
