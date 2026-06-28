@@ -26,7 +26,7 @@ export default function Footer() {
     }
   };
 
-  if (pathname?.startsWith('/warehouse') || pathname?.startsWith('/admin') || pathname === '/login' || pathname === '/signup') {
+  if (pathname?.startsWith('/warehouse') || pathname?.startsWith('/admin') || pathname?.startsWith('/accountant') || pathname === '/login' || pathname === '/signup') {
     return null;
   }
 

@@ -58,10 +58,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setUser(res.data.user);
 
-            if (res.data.user.role === 'admin') {
+            if (['admin', 'super_admin'].includes(res.data.user.role)) {
                 router.push("/admin");
             } else if (res.data.user.role === 'warehouse') {
                 router.push("/warehouse");
+            } else if (res.data.user.role === 'accountant' || res.data.user.role === 'finance') {
+                router.push("/accountant");
+            } else if (res.data.user.role === 'inventory_manager') {
+                router.push("/inventory");
             } else {
                 router.push("/");
             }

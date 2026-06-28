@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HardHat, Bell, Plus, X, Image as ImageIcon, Tag, DollarSign, Loader2, ShoppingBag, Search, Filter, Star, TrendingUp, Layers, ChevronDown, ChevronRight } from "lucide-react";
-import { useAuth } from "../_context/AuthContext";
-import { useCart } from "../_context/CartContext";
-import { useToast } from "../_context/ToastContext";
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { useToast } from '@/context/ToastContext';
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api";
@@ -30,6 +30,8 @@ interface Product {
     lastMonthSales: number;
     brand?: string;
     modelName?: string;
+    hubName?: string;
+    unserviceable?: boolean;
 }
 
 // Helper to get all descendant category IDs (recursive)
@@ -160,8 +162,10 @@ export default function ShopSection() {
 
     const fetchProducts = async () => {
         try {
+            const localPincode = localStorage.getItem("ddtec_pincode");
+            const url = localPincode ? `/products?pincode=${localPincode}` : '/products';
             const [productsRes, categoriesRes] = await Promise.all([
-                api.get('/products'),
+                api.get(url),
                 api.get('/categories')
             ]);
             setProducts(productsRes.data);
@@ -175,6 +179,13 @@ export default function ShopSection() {
 
     useEffect(() => {
         fetchProducts();
+
+        const handlePincodeChange = () => {
+            setLoading(true);
+            fetchProducts();
+        };
+        window.addEventListener('pincode_changed', handlePincodeChange);
+        return () => window.removeEventListener('pincode_changed', handlePincodeChange);
     }, []);
 
     // Update selectedCategory when URL changes
@@ -377,7 +388,8 @@ export default function ShopSection() {
                                             )}
 
                                             {/* Price Badge */}
-                                            <div className="absolute top-2 right-2 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md px-2.5 py-1 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 z-10 hover:scale-105 transition-transform">
+                                            <div className="absolute top-2 right-2 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md px-2.5 py-1 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 z-10 hover:scale-105 transition-transform flex items-center gap-2">
+                                                {product.unserviceable && <span className="text-red-500 font-bold text-[10px] uppercase">Unserviceable</span>}
                                                 <span className="text-teal-600 font-bold text-xs sm:text-sm">₹{product.price}</span>
                                             </div>
 
@@ -411,6 +423,9 @@ export default function ShopSection() {
                                                         {product.name}
                                                     </h3>
                                                 </Link>
+                                                {(product as any).hubName && (
+                                                    <p className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase mt-0.5"><span className="text-slate-400">Sold by</span> {(product as any).hubName}</p>
+                                                )}
                                             </div>
 
                                             <div className="flex items-center gap-1.5 mb-2.5">

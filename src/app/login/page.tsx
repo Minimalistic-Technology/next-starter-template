@@ -4,11 +4,11 @@ import React, { useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Mail, Lock, Loader2, ArrowRight, AlertTriangle } from "lucide-react";
-import { useAuth } from "../_context/AuthContext";
-import { useToast } from "../_context/ToastContext";
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { useDynamicRoutes } from "../_context/RouteContext";
+import { useDynamicRoutes } from '@/context/RouteContext';
 
 const LoginForm = () => {
     const { login } = useAuth();

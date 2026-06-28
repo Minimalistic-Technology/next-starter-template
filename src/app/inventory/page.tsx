@@ -11,16 +11,16 @@ import { Activity, RotateCcw } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import StatsGrid from "./components/StatsGrid";
-import OrdersTable from "./components/OrdersTable";
 
+import InventoryList from "./components/InventoryList";
 
 // Core View Panel Modules
-import OrdersView from "./components/OrdersView";
-import PackingView from "./components/PackingView";
-import ShipmentsView from "./components/ShipmentsView";
-import ReportsView from "./components/ReportsView";
+import InventoryView from "./components/InventoryView";
 import SettingsView from "./components/SettingsView";
 import { NotificationItem } from "./components/Header";
+import InventoryDashboardView from "./components/InventoryDashboardView";
+import StockLocationView from "./components/StockLocationView";
+import WarehouseTransfersView from "./components/WarehouseTransfersView";
 
 interface Product {
     _id: string;
@@ -55,7 +55,7 @@ interface Order {
     createdAt: string;
 }
 
-export default function WarehouseDashboard() {
+export default function InventoryDashboard() {
     const { user, logout, loading } = useAuth();
     const router = useRouter();
     const { showToast } = useToast();
@@ -95,8 +95,8 @@ export default function WarehouseDashboard() {
     const activeTab = sidebarActiveItem.toLowerCase();
 
     useEffect(() => {
-        if (!loading && (!user || user.role !== "warehouse")) {
-            router.push("/login?hint=warehouse");
+        if (!loading && (!user || user.role !== "inventory_manager")) {
+            router.push("/login?hint=inventory_manager");
             return;
         }
 
@@ -287,11 +287,11 @@ export default function WarehouseDashboard() {
         p.name.toLowerCase().includes(productSearch.toLowerCase())
     );
 
-    if (loading || !user || user.role !== 'warehouse') {
+    if (loading || !user || user.role !== 'inventory_manager') {
         return (
             <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center gap-4 transition-colors">
                 <Activity className="size-10 text-teal-600 dark:text-teal-500 animate-spin" />
-                <p className="text-slate-500 font-bold text-sm tracking-widest uppercase">Loading workspace...</p>
+                <p className="text-slate-500 font-bold text-sm tracking-widest uppercase">Loading inventory workspace...</p>
             </div>
         );
     }
@@ -308,24 +308,29 @@ export default function WarehouseDashboard() {
                             lowStockCount={lowStockProducts.length}
                         />
 
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 flex-1">
-                            <OrdersTable
-                                orders={filteredOrders}
-                                isLoadingOrders={isLoadingOrders}
-                                actionLoadingId={actionLoadingId}
-                                updateOrderStage={updateOrderStage}
+                        <div className="grid grid-cols-1 gap-6 flex-1">
+                            <InventoryList
+                                products={filteredProducts}
+                                isLoadingProducts={isLoadingProducts}
+                                productSearch={productSearch}
+                                setProductSearch={setProductSearch}
+                                handleToggleStock={handleToggleStock}
                             />
                         </div>
                     </>
                 );
-            case "Orders":
-                return <OrdersView orders={orders} isLoadingOrders={isLoadingOrders} actionLoadingId={actionLoadingId} updateOrderStage={updateOrderStage} />;
-            case "Packing":
-                return <PackingView orders={orders} isLoadingOrders={isLoadingOrders} actionLoadingId={actionLoadingId} updateOrderStage={updateOrderStage} />;
-            case "Shipments":
-                return <ShipmentsView orders={orders} isLoadingOrders={isLoadingOrders} actionLoadingId={actionLoadingId} updateOrderStage={updateOrderStage} />;
-            case "Reports":
-                return <ReportsView ordersCount={orders.length} dispatchedCount={dispatchedOrders.length} lowStockCount={lowStockProducts.length} />;
+            case "Inventory":
+                return <InventoryView products={products} isLoadingProducts={isLoadingProducts} updateStockDirectly={updateStockDirectly} />;
+            case "Rack Tracking":
+                return (
+                    <div className="flex flex-col gap-6 w-full">
+                        <InventoryDashboardView />
+                        <hr className="border-slate-200 dark:border-slate-700/50 my-2" />
+                        <StockLocationView />
+                    </div>
+                );
+            case "Stock Transfers":
+                return <WarehouseTransfersView />;
             case "Settings":
                 return <SettingsView user={user} showToast={showToast} />;
             default:

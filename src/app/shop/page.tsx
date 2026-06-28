@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import ShopSection from "../_components/ShopSection";
+import ShopSection from '@/components/ShopSection';
 
 export default function ShopPage() {
     return (

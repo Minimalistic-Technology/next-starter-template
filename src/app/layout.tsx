@@ -1,12 +1,12 @@
 import "./globals.css";
 import { Poppins } from "next/font/google";
-import { ThemeProvider } from "./provider/theme-provider";
-import Navbar from "./_components/Navbar";
-import Footer from "./_components/Footer";
-import { AuthProvider } from "./_context/AuthContext";
-import { CartProvider } from "./_context/CartContext";
-import { ToastProvider } from "./_context/ToastContext";
-import { RouteProvider } from "./_context/RouteContext";
+import { ThemeProvider } from '@/providers/theme-provider';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import { AuthProvider } from '@/context/AuthContext';
+import { CartProvider } from '@/context/CartContext';
+import { ToastProvider } from '@/context/ToastContext';
+import { RouteProvider } from '@/context/RouteContext';
 
 const poppins = Poppins({
   subsets: ["latin"],

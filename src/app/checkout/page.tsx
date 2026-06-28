@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useCart } from "../_context/CartContext";
-import { useAuth } from "../_context/AuthContext";
-import { useToast } from "../_context/ToastContext";
+import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { useRouter } from "next/navigation";
 import { CreditCard, Banknote, CheckCircle, Loader2, Tag, Trash2, Smartphone, Lock, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";

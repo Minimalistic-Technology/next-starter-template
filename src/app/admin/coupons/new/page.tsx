@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../../../_context/AuthContext";
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowLeft, Save, RefreshCw } from "lucide-react";
 import api from "@/lib/api";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "../_context/AuthContext";
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Mail, Smartphone, Shield, Calendar, Edit2, Loader2, MapPin, Key, CheckCircle2, AlertCircle } from "lucide-react";

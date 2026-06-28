@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, Send, MessageSquare } from "lucide-react";
-import { useAuth } from "../_context/AuthContext";
+import { useAuth } from '@/context/AuthContext';
 import api from "@/lib/api";
 
 const Contact: React.FC = () => {

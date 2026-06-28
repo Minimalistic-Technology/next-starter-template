@@ -8,10 +8,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Sun, Moon, ShoppingBag, ChevronRight, User, LogOut, ChevronDown, Package, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import LoadingBar from "./LoadingBar";
+import PincodeSelector from "./PincodeSelector";
 import api from "@/lib/api";
-import { useAuth } from "../_context/AuthContext";
-import { useCart } from "../_context/CartContext";
-import { useDynamicRoutes } from "../_context/RouteContext";
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { useDynamicRoutes } from '@/context/RouteContext';
 
 // Helper component for recursive category rendering
 const CategoryItem = ({ category, allCategories, depth = 0 }: { category: any, allCategories: any[], depth?: number }) => {
@@ -260,6 +261,12 @@ export default function Navbar() {
               )}
             </div>
           </Link>
+
+          {!pathname?.startsWith('/admin') && !pathname?.startsWith('/warehouse') && (
+            <div className="hidden sm:block border-l border-slate-200 dark:border-slate-700 pl-4 ml-2">
+              <PincodeSelector scrolled={scrolled} />
+            </div>
+          )}
 
           <div className="hidden md:flex items-center gap-1">
             {activeNavLinks.map((link) => (
@@ -545,6 +552,12 @@ export default function Navbar() {
                 )}
               </div>
 
+                {!pathname?.startsWith('/admin') && !pathname?.startsWith('/warehouse') && (
+                  <div className="w-full pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-center">
+                      <PincodeSelector scrolled={true} />
+                  </div>
+                )}
+
               <div className="mt-auto p-5 border-t dark:border-slate-800">
                 <p className="text-xs text-center text-slate-400">© 2024 DDTEC</p>
               </div>
@@ -555,3 +568,4 @@ export default function Navbar() {
     </>
   );
 }
+

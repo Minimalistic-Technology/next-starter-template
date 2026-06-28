@@ -42,10 +42,9 @@ export default function Sidebar({
 
     const sidebarItems = [
         { label: "Dashboard", icon: LayoutDashboard },
-        { label: "Orders", icon: FileText, count: pendingCount },
-        { label: "Packing", icon: Clock, count: packingCount },
-        { label: "Shipments", icon: Truck },
-        { label: "Reports", icon: Activity },
+        { label: "Inventory", icon: Boxes, count: lowStockCount },
+        { label: "Rack Tracking", icon: MapPin },
+        { label: "Stock Transfers", icon: ArrowRightLeft },
         { label: "Settings", icon: Settings }
     ];
 

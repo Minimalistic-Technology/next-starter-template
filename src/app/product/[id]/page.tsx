@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "../../_context/AuthContext";
-import { useCart } from "../../_context/CartContext";
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 import { Loader2, Star, ShoppingBag, Truck, ShieldCheck, ArrowLeft, Tag, Layers, TrendingUp, X, Maximize2, MessageCircle } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
-import { useDynamicRoutes } from "../../_context/RouteContext";
+import { useDynamicRoutes } from '@/context/RouteContext';
 
 interface Product {
     _id: string;

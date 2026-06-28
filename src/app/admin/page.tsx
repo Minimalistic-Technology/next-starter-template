@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../_context/AuthContext";
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Package, DollarSign, ShoppingBag, Loader2, Trash2, Edit, Plus, X, Tag, Image as ImageIcon, Layers, Ticket, Shield, ChevronLeft, ChevronRight, Mail, Truck, Folder, Settings, Coins, Power, Activity } from "lucide-react";
+import { Users, Package, DollarSign, ShoppingBag, Loader2, Trash2, Edit, Plus, X, Tag, Image as ImageIcon, Layers, Ticket, Shield, ChevronLeft, ChevronRight, Mail, Truck, Folder, Settings, Coins, Power, Activity, Network } from "lucide-react";
 import api from "@/lib/api";
 import ToggleSwitch from "./components/ToggleSwitch";
 import CategoriesView from "./components/CategoriesView";
-import { useDynamicRoutes, RouteConfig } from "@/app/_context/RouteContext";
-import { useToast } from "../_context/ToastContext";
+import HubManagerView from "./components/HubManagerView";
+import { useDynamicRoutes, RouteConfig } from '@/context/RouteContext';
+import { useToast } from '@/context/ToastContext';
 
 interface DashboardStats {
     users: number;
@@ -79,7 +80,7 @@ const AdminDashboard = () => {
     const { showToast } = useToast();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);
-    const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'users' | 'orders' | 'inventory' | 'messages' | 'coupons' | 'blogs' | 'categories' | 'settings' | 'dynamic_routes'>('dashboard');
+    const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'users' | 'orders' | 'inventory' | 'messages' | 'coupons' | 'blogs' | 'categories' | 'settings' | 'dynamic_routes' | 'hubs'>('dashboard');
 
     // Data for Manage Views
     const [usersList, setUsersList] = useState<User[]>([]);
@@ -127,7 +128,8 @@ const AdminDashboard = () => {
 
     // Create User State
     const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ firstName: "", lastName: "", email: "", phone: "", password: "", role: "user" });
+    const [hubsList, setHubsList] = useState<any[]>([]);
+    const [newUser, setNewUser] = useState({ firstName: "", lastName: "", email: "", phone: "", password: "", role: "user", hubId: "" });
 
     // Edit User State
     const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
@@ -274,16 +276,22 @@ const AdminDashboard = () => {
             const res = await api.put('/settings', { components: updatedComponents });
             setSiteSettings(res.data);
         } catch (error: any) {
-            alert(error.response?.data?.msg || "Failed to update settings");
+            showToast(error.response?.data?.msg || "Failed to update settings", "error");
         }
     };
 
     const fetchUsers = async () => {
         setLoadingData(true);
         try {
-            const res = await api.get('/admin/users');
+            const [res, hubsRes] = await Promise.all([
+                api.get('/admin/users'),
+                api.get('/hubs').catch(() => ({ data: [] })) // Fallback gracefully if hubs API fails/CORS
+            ]);
             setUsersList(res.data);
-        } catch (error) { console.error(error); }
+            setHubsList(hubsRes.data || []);
+        } catch (error) {
+            console.error("Failed to fetch users or hubs network error:", error);
+        }
         finally { setLoadingData(false); }
     };
 
@@ -359,11 +367,11 @@ const AdminDashboard = () => {
                     name: "", price: "", description: "", image: "", imagesInput: "", category: "", stock: "", brand: "",
                     modelName: "", rating: "", lastMonthSales: "", couponCode: "", discountPercentage: ""
                 });
-                alert("Product Added Successfully");
+                showToast("Product Added Successfully", "success");
             }
         } catch (error: any) {
             console.error(error);
-            alert(`Error: ${error.response?.data?.msg || 'Failed to add product'}`);
+            showToast(`Error: ${error.response?.data?.msg || 'Failed to add product'}`, "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -414,17 +422,17 @@ const AdminDashboard = () => {
                 fetchProducts();
                 setIsEditModalOpen(false);
                 setEditingProduct(null);
-                alert("Product Updated Successfully");
+                showToast("Product Updated Successfully", "success");
             }
         } catch (error: any) {
             console.error(error);
-            alert(`Error: ${error.response?.data?.msg || 'Failed to update product'}`);
+            showToast(`Error: ${error.response?.data?.msg || 'Failed to update product'}`, "error");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleViewChange = (view: 'dashboard' | 'products' | 'users' | 'orders' | 'inventory' | 'messages' | 'coupons' | 'blogs' | 'categories' | 'settings' | 'dynamic_routes') => {
+    const handleViewChange = (view: 'dashboard' | 'products' | 'users' | 'orders' | 'inventory' | 'messages' | 'coupons' | 'blogs' | 'categories' | 'settings' | 'dynamic_routes' | 'hubs') => {
         setActiveView(view);
         if (view === 'users') fetchUsers();
         if (view === 'products' || view === 'inventory') fetchProducts();
@@ -445,7 +453,7 @@ const AdminDashboard = () => {
             setUsersList(prev => prev.map(u => u._id === id ? { ...u, isActive: !currentStatus } : u));
         } catch (error) {
             console.error(error);
-            alert("Failed to update user status");
+            showToast("Failed to update user status", "error");
         }
     };
 
@@ -455,7 +463,7 @@ const AdminDashboard = () => {
             setProductsList(prev => prev.map(p => p._id === id ? { ...p, isActive: !currentStatus } : p));
         } catch (error) {
             console.error(error);
-            alert("Failed to update product status");
+            showToast("Failed to update product status", "error");
         }
     };
 
@@ -465,7 +473,7 @@ const AdminDashboard = () => {
             setCouponsList(prev => prev.map(c => c._id === id ? { ...c, isActive: !currentStatus } : c));
         } catch (error) {
             console.error(error);
-            alert("Failed to update coupon status");
+            showToast("Failed to update coupon status", "error");
         }
     };
 
@@ -476,7 +484,7 @@ const AdminDashboard = () => {
             setCouponsList(prev => prev.filter(c => c._id !== id));
         } catch (error) {
             console.error(error);
-            alert("Failed to delete coupon");
+            showToast("Failed to delete coupon", "error");
         }
     };
 
@@ -495,10 +503,10 @@ const AdminDashboard = () => {
                 applicableProducts: [],
                 isActive: true
             });
-            alert("Coupon created successfully");
+            showToast("Coupon created successfully", "success");
         } catch (error: any) {
             console.error(error);
-            alert(error.response?.data?.msg || "Failed to create coupon");
+            showToast(error.response?.data?.msg || "Failed to create coupon", "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -513,10 +521,10 @@ const AdminDashboard = () => {
             setCouponsList(prev => prev.map(c => c._id === editingCoupon._id ? data : c));
             setIsEditCouponModalOpen(false);
             setEditingCoupon(null);
-            alert("Coupon updated successfully");
+            showToast("Coupon updated successfully", "success");
         } catch (error: any) {
             console.error(error);
-            alert(error.response?.data?.msg || "Failed to update coupon");
+            showToast(error.response?.data?.msg || "Failed to update coupon", "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -531,10 +539,10 @@ const AdminDashboard = () => {
             setBlogsList(prev => [data, ...prev]);
             setIsAddBlogModalOpen(false);
             setNewBlog({ title: '', content: '', author: '', image: '', slug: '', tags: [] });
-            alert("Blog created successfully");
+            showToast("Blog created successfully", "success");
         } catch (error: any) {
             console.error(error);
-            alert(error.response?.data?.msg || "Failed to create blog");
+            showToast(error.response?.data?.msg || "Failed to create blog", "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -549,10 +557,10 @@ const AdminDashboard = () => {
             setBlogsList(prev => prev.map(b => b._id === editingBlog._id ? data : b));
             setIsEditBlogModalOpen(false);
             setEditingBlog(null);
-            alert("Blog updated successfully");
+            showToast("Blog updated successfully", "success");
         } catch (error: any) {
             console.error(error);
-            alert(error.response?.data?.msg || "Failed to update blog");
+            showToast(error.response?.data?.msg || "Failed to update blog", "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -563,10 +571,10 @@ const AdminDashboard = () => {
         try {
             await api.delete(`/blogs/${id}`);
             setBlogsList(prev => prev.filter(b => b._id !== id));
-            alert("Blog deleted successfully");
+            showToast("Blog deleted successfully", "success");
         } catch (error) {
             console.error(error);
-            alert("Failed to delete blog");
+            showToast("Failed to delete blog", "error");
         }
     };
 
@@ -577,11 +585,11 @@ const AdminDashboard = () => {
             await api.post('/auth/create-user', newUser);
             fetchUsers();
             setIsAddUserModalOpen(false);
-            setNewUser({ firstName: "", lastName: "", email: "", phone: "", password: "", role: "user" });
-            alert("User created successfully");
+            setNewUser({ firstName: "", lastName: "", email: "", phone: "", password: "", role: "user", hubId: "" });
+            showToast("User created successfully", "success");
         } catch (error: any) {
             console.error(error);
-            alert(error.response?.data?.msg || "Failed to create user");
+            showToast(error.response?.data?.msg || "Failed to create user", "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -608,10 +616,10 @@ const AdminDashboard = () => {
             fetchUsers();
             setIsEditUserModalOpen(false);
             setEditingUser(null);
-            alert("User updated successfully");
+            showToast("User updated successfully", "success");
         } catch (error: any) {
             console.error(error);
-            alert(error.response?.data?.msg || "Failed to update user");
+            showToast(error.response?.data?.msg || "Failed to update user", "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -623,7 +631,7 @@ const AdminDashboard = () => {
             setOrdersList(prev => prev.map(order => order._id === orderId ? { ...order, status: newStatus } : order));
         } catch (error: any) {
             console.error(error);
-            alert(error.response?.data?.msg || "Failed to update order status");
+            showToast(error.response?.data?.msg || "Failed to update order status", "error");
         }
     };
 
@@ -658,7 +666,7 @@ const AdminDashboard = () => {
             setIsEditOrderModalOpen(false);
         } catch (error: any) {
             console.error(error);
-            alert(error.response?.data?.msg || "Failed to update order");
+            showToast(error.response?.data?.msg || "Failed to update order", "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -671,7 +679,7 @@ const AdminDashboard = () => {
             setOrdersList(prev => prev.filter(o => o._id !== orderId));
         } catch (error: any) {
             console.error(error);
-            alert(error.response?.data?.msg || "Failed to delete order");
+            showToast(error.response?.data?.msg || "Failed to delete order", "error");
         }
     };
 
@@ -741,7 +749,7 @@ const AdminDashboard = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 relative">
             {/* Sidebar */}
             <aside className={`fixed top-0 left-0 z-40 h-screen pt-24 transition-all duration-300 bg-white border-r border-slate-200 dark:bg-slate-800 dark:border-slate-700 ${isSidebarCollapsed ? 'w-20' : 'w-64'} -translate-x-full md:translate-x-0`} aria-label="Sidebar">
                 {/* Toggle Button */}
@@ -799,6 +807,13 @@ const AdminDashboard = () => {
                         </li>
 
                         <li>
+                            <button onClick={() => handleViewChange('hubs')} className={`w-full flex items-center p-2 rounded-lg group ${activeView === 'hubs' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700'} ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                                <Network className="size-5 text-slate-500 transition duration-75 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white" />
+                                {!isSidebarCollapsed && <span className="ms-3 font-bold">Fulfillment Hubs</span>}
+                            </button>
+                        </li>
+
+                        <li>
                             <button onClick={() => handleViewChange('coupons')} className={`w-full flex items-center p-2 rounded-lg group ${activeView === 'coupons' ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' : 'text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700'} ${isSidebarCollapsed ? 'justify-center' : ''}`}>
                                 <Ticket className="size-5 text-slate-500 transition duration-75 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white" />
                                 {!isSidebarCollapsed && <span className="ms-3">Coupons</span>}
@@ -829,1227 +844,61 @@ const AdminDashboard = () => {
                 </div>
             </aside>
 
-            <main className={`flex-1 p-8 pt-24 transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
-                {/* View Coupons Modal */}
-                <AnimatePresence>
-                    {viewingCoupons && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700"
-                            >
-                                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Active Coupons for {viewingCoupons.productName}</h3>
-                                    <button onClick={() => setViewingCoupons(null)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                        <X className="size-6" />
-                                    </button>
-                                </div>
-                                <div className="p-6 max-h-[60vh] overflow-y-auto">
-                                    <div className="space-y-4">
-                                        {viewingCoupons.coupons.length > 0 ? (
-                                            viewingCoupons.coupons.map((coupon: any) => (
-                                                <div key={coupon._id} className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <div>
-                                                            <span className="text-lg font-bold text-teal-600 dark:text-teal-400 block">{coupon.code}</span>
-                                                            <span className="text-sm text-slate-500 dark:text-slate-400">
-                                                                Discount: {coupon.discountType === 'fixed' ? '₹' : ''}{coupon.discountValue}{coupon.discountType === 'percentage' ? '%' : ''} off
-                                                            </span>
-                                                        </div>
-                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${coupon.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                            {coupon.isActive ? 'Active' : 'Inactive'}
-                                                        </span>
-                                                    </div>
-                                                    {coupon.expiresAt && (
-                                                        <div className="text-xs text-slate-400">
-                                                            Expires: {new Date(coupon.expiresAt).toLocaleDateString()}
-                                                        </div>
-                                                    )}
-                                                    {coupon.usageLimit && (
-                                                        <div className="text-xs text-slate-400 mt-1">
-                                                            Usage: {coupon.usedCount} / {coupon.usageLimit}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-center text-slate-500 py-8">No active coupons found for this product.</div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="p-6 border-t border-slate-100 dark:border-slate-700">
-                                    <button
-                                        onClick={() => setViewingCoupons(null)}
-                                        className="w-full px-4 py-2 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            </motion.div>
-                        </div>
-                    )}
-                </AnimatePresence>
-
-                <div className="max-w-7xl mx-auto">
-                    <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-                            <p className="text-slate-600 dark:text-slate-400 mt-1">
-                                Welcome back, {user.firstName || user.name?.split(' ')[0] || user.email?.split('@')[0] || user.phone || 'Admin'}.
-                            </p>
-                        </div>
-                    </div>
-
-                    {activeView === 'dashboard' && (
-                        <>
-                            {/* Stats Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                                <StatCard
-                                    title="Total Users"
-                                    value={stats?.users || 0}
-                                    icon={<Users className="size-6 text-blue-600" />}
-                                    bg="bg-blue-50 dark:bg-blue-900/20"
-                                />
-                                <StatCard
-                                    title="Total Products"
-                                    value={stats?.products || 0}
-                                    icon={<Package className="size-6 text-teal-600" />}
-                                    bg="bg-teal-50 dark:bg-teal-900/20"
-                                />
-                                <StatCard
-                                    title="Total Orders"
-                                    value={stats?.orders || 0}
-                                    icon={<ShoppingBag className="size-6 text-purple-600" />}
-                                    bg="bg-purple-50 dark:bg-purple-900/20"
-                                />
-                                <StatCard
-                                    title="Total Revenue"
-                                    value={`₹${(stats?.revenue || 0).toLocaleString()}`}
-                                    icon={<DollarSign className="size-6 text-green-600" />}
-                                    bg="bg-green-50 dark:bg-green-900/20"
-                                />
-                            </div>
-
-                            {/* Recent Activity */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Recent Activity</h2>
-                                    <div className="space-y-4">
-                                        {stats?.recentActivity && stats.recentActivity.length > 0 ? (
-                                            stats.recentActivity.map((order) => (
-                                                <div key={order._id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                                                    <div className="size-10 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-teal-600">
-                                                        <ShoppingBag className="size-5" />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="font-medium text-slate-900 dark:text-white">Order placed by {order.shippingInfo?.fullName || "Guest"}</p>
-                                                        <p className="text-sm text-slate-500">
-                                                            ₹{order.totalAmount.toFixed(2)} - {new Date(order.createdAt).toLocaleDateString()}
-                                                        </p>
-                                                    </div>
-                                                    <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 capitalize">
-                                                        {order.status}
-                                                    </span>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="text-slate-500">No recent activity.</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Quick Actions</h2>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <button onClick={() => handleViewChange('products')} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left group">
-                                            <Package className="size-6 text-teal-600 mb-2 group-hover:scale-110 transition-transform" />
-                                            <span className="font-medium text-slate-900 dark:text-white block">Manage Products</span>
-                                        </button>
-                                        <button onClick={() => handleViewChange('users')} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left group">
-                                            <Users className="size-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
-                                            <span className="font-medium text-slate-900 dark:text-white block">Manage Users</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {activeView === 'users' && (
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
-                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white shrink-0">Account Management</h2>
-                                    <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
-                                        <button
-                                            onClick={() => setUserTabMode('customers')}
-                                            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all flex items-center gap-2 ${userTabMode === 'customers'
-                                                ? 'bg-white dark:bg-slate-800 text-teal-600 shadow-sm'
-                                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                                                }`}
-                                        >
-                                            <Users className="size-4" /> Customers
-                                        </button>
-                                        <button
-                                            onClick={() => setUserTabMode('staff')}
-                                            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all flex items-center gap-2 ${userTabMode === 'staff'
-                                                ? 'bg-white dark:bg-slate-800 text-teal-600 shadow-sm'
-                                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                                                }`}
-                                        >
-                                            <Shield className="size-4" /> Staff Members
-                                        </button>
-                                    </div>
-                                </div>
-                                <button onClick={() => setIsAddUserModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold hover:bg-teal-700 transition-colors shrink-0">
-                                    <Plus className="size-4" /> Add {userTabMode === 'customers' ? 'User' : 'Staff'}
-                                </button>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
-                                        <tr>
-                                            <th className="p-4">Name</th>
-                                            <th className="p-4">Email</th>
-                                            <th className="p-4">Role</th>
-                                            <th className="p-4">Status</th>
-                                            {userTabMode === 'customers' && <th className="p-4">Credit</th>}
-                                            <th className="p-4 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                        {usersList
-                                            .filter(u => userTabMode === 'customers' ? u.role === 'user' : u.role !== 'user')
-                                            .map(u => (
-                                                <tr key={u._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                                    <td className="p-4 font-medium text-slate-900 dark:text-white">{u.firstName ? `${u.firstName} ${u.lastName || ''}` : (u.name || u.email.split('@')[0])}</td>
-                                                    <td className="p-4 text-slate-600 dark:text-slate-400">{u.email}</td>
-                                                    <td className="p-4">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${u.role === 'super_admin' ? 'bg-purple-100 text-purple-700' : u.role === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
-                                                            {u.role.replace('_', ' ')}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4">
-                                                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                            {u.isActive ? 'Active' : 'Inactive'}
-                                                        </span>
-                                                    </td>
-                                                    {userTabMode === 'customers' && (
-                                                        <td className="p-4">
-                                                            <div className="flex items-center gap-1 font-mono font-bold text-slate-700 dark:text-slate-300">
-                                                                <Coins className="size-3.5 text-amber-500" />
-                                                                {u.creditBalance || 0}
-                                                            </div>
-                                                        </td>
-                                                    )}
-                                                    <td className="p-4 text-right flex justify-end items-center gap-2">
-                                                        <ToggleSwitch isOn={u.isActive} onToggle={() => toggleUserStatus(u._id, u.isActive)} />
-                                                        <button onClick={() => handleEditUserClick(u)} className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors">
-                                                            <Edit className="size-4" />
-                                                        </button>
-                                                        <button onClick={() => handleDeleteUser(u._id)} className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors">
-                                                            <Trash2 className="size-4" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeView === 'products' && (
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Manage Products</h2>
-                                <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold hover:bg-teal-700 transition-colors">
-                                    <Plus className="size-4" /> Add Product
-                                </button>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
-                                        <tr>
-                                            <th className="p-4">Product</th>
-                                            <th className="p-4">Category</th>
-                                            <th className="p-4">Price</th>
-                                            <th className="p-4">Coupons</th>
-                                            <th className="p-4">Stock</th>
-                                            <th className="p-4">Status</th>
-                                            <th className="p-4 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                        {productsList.map(p => (
-                                            <tr key={p._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                                <td className="p-4 font-medium text-slate-900 dark:text-white">{p.name}</td>
-                                                <td className="p-4 text-slate-600 dark:text-slate-400">
-                                                    {(typeof p.category === 'object' && p.category !== null) ? (p.category as any).name : p.category}
-                                                </td>
-                                                <td className="p-4 text-slate-900 dark:text-white font-medium">₹{p.price}</td>
-                                                <td className="p-4">
-                                                    <div className="flex flex-col gap-1">
-                                                        {p.couponCode && (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 text-xs font-mono font-bold">
-                                                                <Tag className="size-3" /> {p.couponCode}
-                                                            </span>
-                                                        )}
-                                                        {(p as any).couponDetails && (p as any).couponDetails.length > 0 && (
-                                                            <button
-                                                                onClick={() => setViewingCoupons({ productName: p.name, coupons: (p as any).couponDetails })}
-                                                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                                                            >
-                                                                <Ticket className="size-3" />
-                                                                {(p as any).couponDetails.length} Linked Coupon{(p as any).couponDetails.length !== 1 ? 's' : ''}
-                                                            </button>
-                                                        )}
-                                                        {!p.couponCode && (!(p as any).couponDetails || (p as any).couponDetails.length === 0) && (
-                                                            <span className="text-xs text-slate-400 italic">None</span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${p.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                        {p.stock}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${p.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                        {p.isActive ? 'Active' : 'Inactive'}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4 text-right flex justify-end items-center gap-2">
-                                                    <ToggleSwitch isOn={p.isActive} onToggle={() => toggleProductStatus(p._id, p.isActive)} />
-                                                    <button onClick={() => handleEditClick(p)} className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors" title="Edit Product">
-                                                        <Edit className="size-4" />
-                                                    </button>
-                                                    <button onClick={() => handleDeleteProduct(p._id)} className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors" title="Delete Product">
-                                                        <Trash2 className="size-4" />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeView === 'inventory' && (
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Inventory Management</h2>
-                                <div className="flex gap-2">
-                                    <span className="flex items-center gap-1 text-xs text-slate-500">
-                                        <div className="size-2 rounded-full bg-red-500"></div> Low Stock (&lt; 10)
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
-                                        <tr>
-                                            <th className="p-4">SKU/Product</th>
-                                            <th className="p-4">Category</th>
-                                            <th className="p-4 text-center">Current Stock</th>
-                                            <th className="p-4 text-center">Status</th>
-                                            <th className="p-4 text-right">Quick Restock</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                        {productsList.map(p => (
-                                            <tr key={p._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                                <td className="p-4">
-                                                    <div className="font-medium text-slate-900 dark:text-white">{p.name}</div>
-                                                    <div className="text-xs text-slate-400 font-mono uppercase">{p._id.slice(-8)}</div>
-                                                </td>
-                                                <td className="p-4 text-slate-600 dark:text-slate-400">
-                                                    {(typeof p.category === 'object' && p.category !== null) ? (p.category as any).name : p.category}
-                                                </td>
-                                                <td className="p-4 text-center">
-                                                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${p.stock < 10 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                                                        {p.stock}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4 text-center">
-                                                    {p.stock === 0 ? (
-                                                        <span className="text-xs font-bold text-red-500 flex items-center justify-center gap-1"><X className="size-3" /> Out of Stock</span>
-                                                    ) : p.stock < 10 ? (
-                                                        <span className="text-xs font-bold text-orange-500 flex items-center justify-center gap-1"><Shield className="size-3" /> Reorder Soon</span>
-                                                    ) : (
-                                                        <span className="text-xs font-bold text-teal-500 flex items-center justify-center gap-1"><Shield className="size-3" /> Healthy</span>
-                                                    )}
-                                                </td>
-                                                <td className="p-4 text-right">
-                                                    <div className="flex justify-end gap-2">
-                                                        <button
-                                                            onClick={async () => {
-                                                                const amount = prompt("How many units to add?");
-                                                                if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
-                                                                    try {
-                                                                        await api.put(`/products/${p._id}`, { stock: p.stock + Number(amount) });
-                                                                        fetchProducts();
-                                                                    } catch (e: any) { alert(e.response?.data?.msg || "Failed to restock"); }
-                                                                }
-                                                            }}
-                                                            className="px-3 py-1 bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 rounded-lg text-xs font-bold hover:bg-teal-100 transition-colors"
-                                                        >
-                                                            <Plus className="size-3 inline mr-1" /> Add
-                                                        </button>
-                                                        <button
-                                                            onClick={async () => {
-                                                                const amount = prompt("How many units to remove?");
-                                                                if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
-                                                                    if (Number(amount) > p.stock) {
-                                                                        alert("Cannot remove more than current stock");
-                                                                        return;
-                                                                    }
-                                                                    try {
-                                                                        await api.put(`/products/${p._id}`, { stock: Math.max(0, p.stock - Number(amount)) });
-                                                                        fetchProducts();
-                                                                    } catch (e: any) { alert(e.response?.data?.msg || "Failed to remove stock"); }
-                                                                }
-                                                            }}
-                                                            className="px-3 py-1 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
-                                                        >
-                                                            <Trash2 className="size-3 inline mr-1" /> Remove
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
-
-                    {activeView === 'orders' && (
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Order Management</h2>
-                                <span className="text-sm text-slate-500">{ordersList.length} Total Orders</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
-                                        <tr>
-                                            <th className="p-4">Order ID / Date</th>
-                                            <th className="p-4">Customer</th>
-                                            <th className="p-4">Total</th>
-                                            <th className="p-4">Status</th>
-                                            <th className="p-4 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                        {ordersList.map(order => (
-                                            <tr key={order._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                                <td className="p-4">
-                                                    <div className="font-mono text-xs uppercase text-slate-900 dark:text-white">#{order._id.slice(-8)}</div>
-                                                    <div className="text-xs text-slate-400">{new Date(order.createdAt).toLocaleDateString()}</div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="text-sm font-medium text-slate-900 dark:text-white">{order.shippingInfo?.fullName || "Guest"}</div>
-                                                    <div className="text-xs text-slate-400">{order.user?.email || 'Guest'}</div>
-                                                </td>
-                                                <td className="p-4 text-slate-900 dark:text-white font-bold">₹{order.totalAmount.toLocaleString()}</td>
-                                                <td className="p-4">
-                                                    <select
-                                                        value={order.status}
-                                                        onChange={(e) => handleUpdateOrderStatus(order._id, e.target.value)}
-                                                        className={`text-xs font-bold rounded-lg px-2 py-1 outline-none border-none cursor-pointer
-                                                                ${order.status === 'delivered' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                                order.status === 'shipped' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                                                                    order.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                                        'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'}`}
-                                                    >
-                                                        <option value="processing">Processing</option>
-                                                        <option value="shipped">Shipped</option>
-                                                        <option value="delivered">Delivered</option>
-                                                        <option value="cancelled">Cancelled</option>
-                                                    </select>
-                                                </td>
-                                                <td className="p-4 text-right flex justify-end items-center gap-2">
-                                                    <button
-                                                        onClick={() => handleEditOrderClick(order)}
-                                                        className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
-                                                        title="Edit Order"
-                                                    >
-                                                        <Edit className="size-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteOrder(order._id)}
-                                                        className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
-                                                        title="Delete Order"
-                                                    >
-                                                        <Trash2 className="size-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setViewingOrder(order)}
-                                                        className="p-2 text-slate-400 hover:text-teal-600 transition-colors"
-                                                        title="View Details"
-                                                    >
-                                                        <Layers className="size-4" />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeView === 'messages' && (
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Contact Messages</h2>
-                                <span className="text-sm text-slate-500">{messagesList.length} Total Messages</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                {loadingData ? (
-                                    <div className="flex items-center justify-center py-16">
-                                        <Loader2 className="animate-spin text-teal-600 size-10" />
-                                    </div>
-                                ) : messagesList.length === 0 ? (
-                                    <div className="text-center py-16">
-                                        <Mail className="size-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-                                        <p className="text-slate-500 dark:text-slate-400 text-lg">No messages yet</p>
-                                        <p className="text-slate-400 dark:text-slate-500 text-sm mt-2">Messages from the contact form will appear here</p>
-                                    </div>
-                                ) : (
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
-                                            <tr>
-                                                <th className="p-4">From</th>
-                                                <th className="p-4">Message</th>
-                                                <th className="p-4">Date</th>
-                                                <th className="p-4 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                            {messagesList.map(msg => (
-                                                <tr key={msg._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                                    <td className="p-4">
-                                                        <div className="font-medium text-slate-900 dark:text-white">{msg.firstName} {msg.lastName}</div>
-                                                        <div className="text-sm text-slate-400">{msg.email}</div>
-                                                    </td>
-                                                    <td className="p-4">
-                                                        <p className="text-slate-600 dark:text-slate-400 line-clamp-2 max-w-md">{msg.message}</p>
-                                                    </td>
-                                                    <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
-                                                        {new Date(msg.createdAt).toLocaleDateString()}
-                                                    </td>
-                                                    <td className="p-4 text-right">
-                                                        <a
-                                                            href={`mailto:${msg.email}?subject=Re: Your message&body=Hi ${msg.firstName},%0D%0A%0D%0A`}
-                                                            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded-lg text-sm font-medium hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
-                                                        >
-                                                            <Mail className="size-4" />
-                                                            Reply
-                                                        </a>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {activeView === 'blogs' && (
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Manage Blogs</h2>
-                                <button onClick={() => setIsAddBlogModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold hover:bg-teal-700 transition-colors">
-                                    <Plus className="size-4" /> Add Blog
-                                </button>
-                            </div>
-                            <div className="overflow-x-auto">
-                                {loadingData ? (
-                                    <div className="flex items-center justify-center py-16">
-                                        <Loader2 className="animate-spin text-teal-600 size-10" />
-                                    </div>
-                                ) : blogsList.length === 0 ? (
-                                    <div className="text-center py-16">
-                                        <Edit className="size-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-                                        <p className="text-slate-500 dark:text-slate-400 text-lg">No blogs yet</p>
-                                        <p className="text-slate-400 dark:text-slate-500 text-sm mt-2">Create your first blog post to get started</p>
-                                    </div>
-                                ) : (
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
-                                            <tr>
-                                                <th className="p-4">Title</th>
-                                                <th className="p-4">Author</th>
-                                                <th className="p-4">Slug</th>
-                                                <th className="p-4">Date</th>
-                                                <th className="p-4 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                            {blogsList.map(blog => (
-                                                <tr key={blog._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                                    <td className="p-4">
-                                                        <div className="font-medium text-slate-900 dark:text-white line-clamp-1 max-w-xs">{blog.title}</div>
-                                                        {blog.tags && blog.tags.length > 0 && (
-                                                            <div className="flex gap-1 mt-1">
-                                                                {blog.tags.slice(0, 2).map((tag, idx) => (
-                                                                    <span key={idx} className="text-xs px-2 py-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded">
-                                                                        {tag}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-4 text-slate-600 dark:text-slate-400">{blog.author}</td>
-                                                    <td className="p-4 text-slate-500 dark:text-slate-400 font-mono text-sm">{blog.slug}</td>
-                                                    <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
-                                                        {new Date(blog.createdAt).toLocaleDateString()}
-                                                    </td>
-                                                    <td className="p-4 text-right flex justify-end items-center gap-2">
-                                                        <button
-                                                            onClick={() => { setEditingBlog(blog); setIsEditBlogModalOpen(true); }}
-                                                            className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
-                                                            title="Edit Blog"
-                                                        >
-                                                            <Edit className="size-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteBlog(blog._id)}
-                                                            className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
-                                                            title="Delete Blog"
-                                                        >
-                                                            <Trash2 className="size-4" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {activeView === 'categories' && <CategoriesView />}
-
-                    {/* Add Product Modal */}
+            <main className={`transition-all duration-300 min-h-screen w-full ${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
+                <div className="p-4 md:p-8 pt-24 w-full">
+                    {/* View Coupons Modal */}
                     <AnimatePresence>
-                        {
-                            isAddModalOpen && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.95 }}
-                                        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
-                                    >
-                                        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New Product</h3>
-                                            <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                                <X className="size-6" />
-                                            </button>
-                                        </div>
-                                        <form onSubmit={handleAddProduct} className="flex flex-col max-h-[90vh]">
-                                            <div className="p-6 space-y-4 overflow-y-auto">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Product Name</label>
-                                                    <div className="relative">
-                                                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                                                        <input
-                                                            required
-                                                            type="text"
-                                                            value={newProduct.name}
-                                                            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                                                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="e.g. Cordless Drill"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Price (₹)</label>
-                                                        <div className="relative">
-                                                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                                                            <input
-                                                                required
-                                                                type="number"
-                                                                value={newProduct.price}
-                                                                onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                                                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                                placeholder="0.00"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock</label>
-                                                        <input
-                                                            required
-                                                            type="number"
-                                                            value={newProduct.stock}
-                                                            onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="100"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Brand</label>
-                                                        <input
-                                                            type="text"
-                                                            value={newProduct.brand}
-                                                            onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="e.g. Bosch"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Model Name</label>
-                                                        <input
-                                                            type="text"
-                                                            value={newProduct.modelName}
-                                                            onChange={(e) => setNewProduct({ ...newProduct, modelName: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="e.g. GSB 600"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rating</label>
-                                                        <input
-                                                            type="number"
-                                                            step="0.1"
-                                                            min="0"
-                                                            max="5"
-                                                            value={newProduct.rating}
-                                                            onChange={(e) => setNewProduct({ ...newProduct, rating: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="4.5"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Month Sales</label>
-                                                        <input
-                                                            type="number"
-                                                            value={newProduct.lastMonthSales}
-                                                            onChange={(e) => setNewProduct({ ...newProduct, lastMonthSales: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="50"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Coupon Code</label>
-                                                        <input
-                                                            type="text"
-                                                            value={newProduct.couponCode}
-                                                            onChange={(e) => setNewProduct({ ...newProduct, couponCode: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="e.g. SAVE10"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Discount (%)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={newProduct.discountPercentage}
-                                                            onChange={(e) => setNewProduct({ ...newProduct, discountPercentage: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="10"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
-                                                    <select
-                                                        required
-                                                        value={newProduct.category}
-                                                        onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    >
-                                                        <option value="">Select Category</option>
-                                                        {categoriesList.map(cat => (
-                                                            <option key={cat._id} value={cat._id}>{cat.name}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
-                                                    <div className="relative">
-                                                        <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URLs (comma separated)</label>
-                                                        <div className="relative">
-                                                            <ImageIcon className="absolute left-3 top-3 text-slate-400 size-4" />
-                                                            <textarea
-                                                                value={newProduct.imagesInput}
-                                                                onChange={(e) => setNewProduct({ ...newProduct, imagesInput: e.target.value })}
-                                                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none h-24 resize-none"
-                                                                placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
-                                                    <textarea
-                                                        value={newProduct.description}
-                                                        onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none h-24 resize-none"
-                                                        placeholder="Product details..."
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsAddModalOpen(false)}
-                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    type="submit"
-                                                    disabled={isSubmitting}
-                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
-                                                >
-                                                    {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Create Product'}
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </motion.div>
-                                </div>
-                            )
-                        }
-                    </AnimatePresence >
-
-                    {/* Edit Product Modal */}
-                    <AnimatePresence>
-                        {
-                            isEditModalOpen && editingProduct && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.95 }}
-                                        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
-                                    >
-                                        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Product</h3>
-                                            <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                                <X className="size-6" />
-                                            </button>
-                                        </div>
-                                        <form onSubmit={handleUpdateProduct} className="flex flex-col max-h-[90vh]">
-                                            <div className="p-6 space-y-4 overflow-y-auto">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Product Name</label>
-                                                    <div className="relative">
-                                                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                                                        <input
-                                                            required
-                                                            type="text"
-                                                            value={editingProduct.name}
-                                                            onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
-                                                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="e.g. Cordless Drill"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Price (₹)</label>
-                                                        <div className="relative">
-                                                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                                                            <input
-                                                                required
-                                                                type="number"
-                                                                value={editingProduct.price}
-                                                                onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value })}
-                                                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                                placeholder="0.00"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock</label>
-                                                        <input
-                                                            required
-                                                            type="number"
-                                                            value={editingProduct.stock}
-                                                            onChange={(e) => setEditingProduct({ ...editingProduct, stock: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="100"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Brand</label>
-                                                        <input
-                                                            type="text"
-                                                            value={editingProduct.brand}
-                                                            onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="e.g. Bosch"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Model Name</label>
-                                                        <input
-                                                            type="text"
-                                                            value={editingProduct.modelName}
-                                                            onChange={(e) => setEditingProduct({ ...editingProduct, modelName: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="e.g. GSB 600"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rating</label>
-                                                        <input
-                                                            type="number"
-                                                            step="0.1"
-                                                            min="0"
-                                                            max="5"
-                                                            value={editingProduct.rating}
-                                                            onChange={(e) => setEditingProduct({ ...editingProduct, rating: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="4.5"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Month Sales</label>
-                                                        <input
-                                                            type="number"
-                                                            value={editingProduct.lastMonthSales}
-                                                            onChange={(e) => setEditingProduct({ ...editingProduct, lastMonthSales: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                            placeholder="50"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
-                                                    <select
-                                                        required
-                                                        value={editingProduct.category}
-                                                        onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    >
-                                                        <option value="">Select Category</option>
-                                                        {categoriesList.map(cat => (
-                                                            <option key={cat._id} value={cat._id}>{cat.name}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
-                                                    <div className="relative">
-                                                        <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URLs (comma separated)</label>
-                                                        <div className="relative">
-                                                            <ImageIcon className="absolute left-3 top-3 text-slate-400 size-4" />
-                                                            <textarea
-                                                                value={editingProduct.imagesInput}
-                                                                onChange={(e) => setEditingProduct({ ...editingProduct, imagesInput: e.target.value })}
-                                                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none h-24 resize-none"
-                                                                placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
-                                                    <textarea
-                                                        value={editingProduct.description}
-                                                        onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none h-24 resize-none"
-                                                        placeholder="Product details..."
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsEditModalOpen(false)}
-                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    type="submit"
-                                                    disabled={isSubmitting}
-                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
-                                                >
-                                                    {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Update Product'}
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </motion.div>
-                                </div>
-                            )
-                        }
-                    </AnimatePresence >
-
-                    {/* Coupons View */}
-                    {activeView === 'coupons' && (
-                        <div className="space-y-8">
-                            {/* Header & Create Button */}
-                            <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-                                <div>
-                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Coupon Management</h2>
-                                    <p className="text-slate-500 dark:text-slate-400 text-sm">Create and manage discount codes</p>
-                                </div>
-                                <button
-                                    onClick={() => setIsAddCouponModalOpen(true)}
-                                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg flex items-center gap-2 transition-all shadow-lg shadow-teal-500/20"
-                                >
-                                    <Plus className="size-4" /> Create Coupon
-                                </button>
-                            </div>
-
-                            {/* Active Coupons */}
-                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                        <Ticket className="size-5 text-teal-500" /> Active Coupons
-                                    </h3>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
-                                            <tr>
-                                                <th className="p-4">Code</th>
-                                                <th className="p-4">Discount</th>
-                                                <th className="p-4">Expiry</th>
-                                                <th className="p-4 text-center">Status</th>
-                                                <th className="p-4 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                            {couponsList.filter(c => !c.expiresAt || new Date(c.expiresAt) > new Date()).map(coupon => (
-                                                <tr key={coupon._id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${!coupon.isActive ? 'opacity-60' : ''}`}>
-                                                    <td className="p-4 font-mono font-bold text-slate-700 dark:text-slate-300">
-                                                        {coupon.code}
-                                                    </td>
-                                                    <td className="p-4 text-slate-600 dark:text-slate-400">
-                                                        {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `$${coupon.discountValue}`}
-                                                    </td>
-                                                    <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
-                                                        {coupon.expiresAt ? new Date(coupon.expiresAt).toLocaleDateString() : 'Never'}
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={coupon.isActive}
-                                                            onChange={() => toggleCouponStatus(coupon._id, coupon.isActive)}
-                                                            className="size-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
-                                                        />
-                                                    </td>
-                                                    <td className="p-4 text-right">
-                                                        <button onClick={() => handleDeleteCoupon(coupon._id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-                                                            <Trash2 className="size-4" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {couponsList.filter(c => !c.expiresAt || new Date(c.expiresAt) > new Date()).length === 0 && (
-                                                <tr>
-                                                    <td colSpan={5} className="p-8 text-center text-slate-500">No active coupons found.</td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            {/* Expired Coupons */}
-                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden opacity-80">
-                                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/30">
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                        <Trash2 className="size-5 text-slate-400" /> Expired Coupons
-                                    </h3>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
-                                            <tr>
-                                                <th className="p-4">Code</th>
-                                                <th className="p-4">Discount</th>
-                                                <th className="p-4">Expired On</th>
-                                                <th className="p-4 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                            {couponsList.filter(c => c.expiresAt && new Date(c.expiresAt) <= new Date()).map(coupon => (
-                                                <tr key={coupon._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors bg-red-50/10">
-                                                    <td className="p-4 font-mono font-bold text-slate-500 dark:text-slate-400 line-through">
-                                                        {coupon.code}
-                                                    </td>
-                                                    <td className="p-4 text-slate-500 dark:text-slate-500">
-                                                        {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `$${coupon.discountValue}`}
-                                                    </td>
-                                                    <td className="p-4 text-red-500 text-sm font-medium">
-                                                        {new Date(coupon.expiresAt).toLocaleDateString()}
-                                                    </td>
-                                                    <td className="p-4 text-right">
-                                                        <button onClick={() => handleDeleteCoupon(coupon._id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-                                                            <Trash2 className="size-4" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {couponsList.filter(c => c.expiresAt && new Date(c.expiresAt) <= new Date()).length === 0 && (
-                                                <tr>
-                                                    <td colSpan={4} className="p-8 text-center text-slate-500">No expired coupons found.</td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-
-                    {/* View Order Modal */}
-                    <AnimatePresence>
-                        {viewingOrder && (
+                        {viewingCoupons && (
                             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                                 <motion.div
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
-                                    className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]"
+                                    className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700"
                                 >
                                     <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                        <div>
-                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Order Details</h3>
-                                            <p className="text-sm text-slate-500">#{viewingOrder._id}</p>
-                                        </div>
-                                        <button onClick={() => setViewingOrder(null)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Active Coupons for {viewingCoupons.productName}</h3>
+                                        <button onClick={() => setViewingCoupons(null)} className="text-slate-400 hover:text-red-500 transition-colors">
                                             <X className="size-6" />
                                         </button>
                                     </div>
-
-                                    <div className="p-6 overflow-y-auto space-y-6">
-                                        {/* Status & Date */}
-                                        <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900 rounded-xl">
-                                            <div>
-                                                <p className="text-xs text-slate-400 uppercase font-bold mb-1">Status</p>
-                                                <span className={`px-2 py-1 rounded-full text-xs font-bold capitalize ${viewingOrder.status === 'delivered' ? 'bg-green-100 text-green-700' : viewingOrder.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                    {viewingOrder.status}
-                                                </span>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-xs text-slate-400 uppercase font-bold mb-1">Date</p>
-                                                <p className="text-sm font-medium text-slate-900 dark:text-white">{new Date(viewingOrder.createdAt).toLocaleString()}</p>
-                                            </div>
-                                        </div>
-
-                                        {/* Customer & Shipping */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div>
-                                                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                                                    <Users className="size-4" /> Customer Details
-                                                </h4>
-                                                <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                                                    <p><span className="font-medium text-slate-900 dark:text-white">Name:</span> {viewingOrder.shippingInfo?.fullName || 'N/A'}</p>
-                                                    <p><span className="font-medium text-slate-900 dark:text-white">Email:</span> {viewingOrder.shippingInfo?.email || 'N/A'}</p>
-                                                    <p><span className="font-medium text-slate-900 dark:text-white">Phone:</span> {viewingOrder.shippingInfo?.phone || 'N/A'}</p>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                                                    <Truck className="size-4" /> Shipping Address
-                                                </h4>
-                                                <div className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
-                                                    <p>{viewingOrder.shippingInfo?.address || 'N/A'}</p>
-                                                    <p>{viewingOrder.shippingInfo?.city || 'N/A'}, {viewingOrder.shippingInfo?.pincode || viewingOrder.shippingInfo?.zip || ''}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Order Items */}
-                                        <div>
-                                            <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                                                <ShoppingBag className="size-4" /> Ordered Items
-                                            </h4>
-                                            <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                                                <table className="w-full text-left text-sm">
-                                                    <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500">
-                                                        <tr>
-                                                            <th className="p-3 font-medium">Product</th>
-                                                            <th className="p-3 font-medium text-center">Qty</th>
-                                                            <th className="p-3 font-medium text-right">Price</th>
-                                                            <th className="p-3 font-medium text-right">Total</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                                        {viewingOrder.items.map((item: any, idx: number) => (
-                                                            <tr key={idx}>
-                                                                <td className="p-3">
-                                                                    <div className="flex items-center gap-3">
-                                                                        {item.product?.image ? (
-                                                                            <img src={item.product?.image} alt={item.product?.name} className="size-10 rounded-lg object-cover bg-slate-100" />
-                                                                        ) : (
-                                                                            <div className="size-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs">IMG</div>
-                                                                        )}
-                                                                        <div>
-                                                                            <p className="font-medium text-slate-900 dark:text-white line-clamp-1">{item.product?.name || 'Unknown Product'}</p>
-                                                                            <p className="text-xs text-slate-400">ID: {item.product?._id || item.product}</p>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="p-3 text-center text-slate-600 dark:text-slate-400">{item.quantity}</td>
-                                                                <td className="p-3 text-right text-slate-600 dark:text-slate-400">₹{item.price.toLocaleString()}</td>
-                                                                <td className="p-3 text-right font-medium text-slate-900 dark:text-white">₹{(item.price * item.quantity).toLocaleString()}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-
-                                        {/* Payment & Totals */}
-                                        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl space-y-2">
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-slate-500">Payment Method</span>
-                                                <span className="font-bold text-slate-900 dark:text-white uppercase">{viewingOrder.paymentMethod}</span>
-                                            </div>
-                                            {viewingOrder.coupon && (
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-slate-500">Coupon Applied</span>
-                                                    <span className="font-medium text-teal-600">{viewingOrder.coupon}</span>
-                                                </div>
+                                    <div className="p-6 max-h-[60vh] overflow-y-auto">
+                                        <div className="space-y-4">
+                                            {viewingCoupons.coupons.length > 0 ? (
+                                                viewingCoupons.coupons.map((coupon: any) => (
+                                                    <div key={coupon._id} className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <div>
+                                                                <span className="text-lg font-bold text-teal-600 dark:text-teal-400 block">{coupon.code}</span>
+                                                                <span className="text-sm text-slate-500 dark:text-slate-400">
+                                                                    Discount: {coupon.discountType === 'fixed' ? '₹' : ''}{coupon.discountValue}{coupon.discountType === 'percentage' ? '%' : ''} off
+                                                                </span>
+                                                            </div>
+                                                            <span className={`px-2 py-1 rounded text-xs font-bold ${coupon.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                {coupon.isActive ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        </div>
+                                                        {coupon.expiresAt && (
+                                                            <div className="text-xs text-slate-400">
+                                                                Expires: {new Date(coupon.expiresAt).toLocaleDateString()}
+                                                            </div>
+                                                        )}
+                                                        {coupon.usageLimit && (
+                                                            <div className="text-xs text-slate-400 mt-1">
+                                                                Usage: {coupon.usedCount} / {coupon.usageLimit}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center text-slate-500 py-8">No active coupons found for this product.</div>
                                             )}
-                                            {viewingOrder.discountAmount > 0 && (
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-slate-500">Discount</span>
-                                                    <span className="font-medium text-green-600">-₹{viewingOrder.discountAmount.toLocaleString()}</span>
-                                                </div>
-                                            )}
-                                            <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-end">
-                                                <span className="text-slate-900 dark:text-white font-bold">Total Amount</span>
-                                                <span className="text-2xl font-bold text-teal-600">₹{viewingOrder.totalAmount.toLocaleString()}</span>
-                                            </div>
                                         </div>
                                     </div>
-
                                     <div className="p-6 border-t border-slate-100 dark:border-slate-700">
                                         <button
-                                            onClick={() => setViewingOrder(null)}
-                                            className="w-full px-4 py-3 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                            onClick={() => setViewingCoupons(null)}
+                                            className="w-full px-4 py-2 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                                         >
                                             Close
                                         </button>
@@ -2059,10 +908,1506 @@ const AdminDashboard = () => {
                         )}
                     </AnimatePresence>
 
-                    {/* Add User Modal */}
-                    <AnimatePresence>
-                        {
-                            isAddUserModalOpen && (
+                    <div className="max-w-7xl mx-auto">
+                        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+                                <p className="text-slate-600 dark:text-slate-400 mt-1">
+                                    Welcome back, {user.firstName || user.name?.split(' ')[0] || user.email?.split('@')[0] || user.phone || 'Admin'}.
+                                </p>
+                            </div>
+                        </div>
+
+                        {activeView === 'dashboard' && (
+                            <>
+                                {/* Stats Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                                    <StatCard
+                                        title="Total Users"
+                                        value={stats?.users || 0}
+                                        icon={<Users className="size-6 text-blue-600" />}
+                                        bg="bg-blue-50 dark:bg-blue-900/20"
+                                    />
+                                    <StatCard
+                                        title="Total Products"
+                                        value={stats?.products || 0}
+                                        icon={<Package className="size-6 text-teal-600" />}
+                                        bg="bg-teal-50 dark:bg-teal-900/20"
+                                    />
+                                    <StatCard
+                                        title="Total Orders"
+                                        value={stats?.orders || 0}
+                                        icon={<ShoppingBag className="size-6 text-purple-600" />}
+                                        bg="bg-purple-50 dark:bg-purple-900/20"
+                                    />
+                                    <StatCard
+                                        title="Total Revenue"
+                                        value={`₹${(stats?.revenue || 0).toLocaleString()}`}
+                                        icon={<DollarSign className="size-6 text-green-600" />}
+                                        bg="bg-green-50 dark:bg-green-900/20"
+                                    />
+                                </div>
+
+                                {/* Recent Activity */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Recent Activity</h2>
+                                        <div className="space-y-4">
+                                            {stats?.recentActivity && stats.recentActivity.length > 0 ? (
+                                                stats.recentActivity.map((order) => (
+                                                    <div key={order._id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                                                        <div className="size-10 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-teal-600">
+                                                            <ShoppingBag className="size-5" />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="font-medium text-slate-900 dark:text-white">Order placed by {order.shippingInfo?.fullName || "Guest"}</p>
+                                                            <p className="text-sm text-slate-500">
+                                                                ₹{order.totalAmount.toFixed(2)} - {new Date(order.createdAt).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 capitalize">
+                                                            {order.status}
+                                                        </span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-slate-500">No recent activity.</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Quick Actions</h2>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <button onClick={() => handleViewChange('products')} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left group">
+                                                <Package className="size-6 text-teal-600 mb-2 group-hover:scale-110 transition-transform" />
+                                                <span className="font-medium text-slate-900 dark:text-white block">Manage Products</span>
+                                            </button>
+                                            <button onClick={() => handleViewChange('users')} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left group">
+                                                <Users className="size-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
+                                                <span className="font-medium text-slate-900 dark:text-white block">Manage Users</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {activeView === 'users' && (
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+                                        <h2 className="text-xl font-bold text-slate-900 dark:text-white shrink-0">Account Management</h2>
+                                        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+                                            <button
+                                                onClick={() => setUserTabMode('customers')}
+                                                className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all flex items-center gap-2 ${userTabMode === 'customers'
+                                                    ? 'bg-white dark:bg-slate-800 text-teal-600 shadow-sm'
+                                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                                    }`}
+                                            >
+                                                <Users className="size-4" /> Customers
+                                            </button>
+                                            <button
+                                                onClick={() => setUserTabMode('staff')}
+                                                className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all flex items-center gap-2 ${userTabMode === 'staff'
+                                                    ? 'bg-white dark:bg-slate-800 text-teal-600 shadow-sm'
+                                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                                    }`}
+                                            >
+                                                <Shield className="size-4" /> Staff Members
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setIsAddUserModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold hover:bg-teal-700 transition-colors shrink-0">
+                                        <Plus className="size-4" /> Add {userTabMode === 'customers' ? 'User' : 'Staff'}
+                                    </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
+                                            <tr>
+                                                <th className="p-4">Name</th>
+                                                <th className="p-4">Email</th>
+                                                <th className="p-4">Role</th>
+                                                <th className="p-4">Status</th>
+                                                {userTabMode === 'customers' && <th className="p-4">Credit</th>}
+                                                <th className="p-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                            {usersList
+                                                .filter(u => userTabMode === 'customers' ? u.role === 'user' : u.role !== 'user')
+                                                .map(u => (
+                                                    <tr key={u._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                                        <td className="p-4 font-medium text-slate-900 dark:text-white">{u.firstName ? `${u.firstName} ${u.lastName || ''}` : (u.name || u.email.split('@')[0])}</td>
+                                                        <td className="p-4 text-slate-600 dark:text-slate-400">{u.email}</td>
+                                                        <td className="p-4">
+                                                            <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${u.role === 'super_admin' ? 'bg-purple-100 text-purple-700' : u.role === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
+                                                                {u.role.replace('_', ' ')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <span className={`text-xs font-bold px-2 py-1 rounded-full ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                {u.isActive ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        </td>
+                                                        {userTabMode === 'customers' && (
+                                                            <td className="p-4">
+                                                                <div className="flex items-center gap-1 font-mono font-bold text-slate-700 dark:text-slate-300">
+                                                                    <Coins className="size-3.5 text-amber-500" />
+                                                                    {u.creditBalance || 0}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        <td className="p-4 text-right flex justify-end items-center gap-2">
+                                                            <ToggleSwitch isOn={u.isActive} onToggle={() => toggleUserStatus(u._id, u.isActive)} />
+                                                            <button onClick={() => handleEditUserClick(u)} className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors">
+                                                                <Edit className="size-4" />
+                                                            </button>
+                                                            <button onClick={() => handleDeleteUser(u._id)} className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors">
+                                                                <Trash2 className="size-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeView === 'products' && (
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Manage Products</h2>
+                                    <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold hover:bg-teal-700 transition-colors">
+                                        <Plus className="size-4" /> Add Product
+                                    </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
+                                            <tr>
+                                                <th className="p-4">Product</th>
+                                                <th className="p-4">Category</th>
+                                                <th className="p-4">Price</th>
+                                                <th className="p-4">Coupons</th>
+                                                <th className="p-4">Stock</th>
+                                                <th className="p-4">Status</th>
+                                                <th className="p-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                            {productsList.map(p => (
+                                                <tr key={p._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                                    <td className="p-4 font-medium text-slate-900 dark:text-white">{p.name}</td>
+                                                    <td className="p-4 text-slate-600 dark:text-slate-400">
+                                                        {(typeof p.category === 'object' && p.category !== null) ? (p.category as any).name : p.category}
+                                                    </td>
+                                                    <td className="p-4 text-slate-900 dark:text-white font-medium">₹{p.price}</td>
+                                                    <td className="p-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            {p.couponCode && (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 text-xs font-mono font-bold">
+                                                                    <Tag className="size-3" /> {p.couponCode}
+                                                                </span>
+                                                            )}
+                                                            {(p as any).couponDetails && (p as any).couponDetails.length > 0 && (
+                                                                <button
+                                                                    onClick={() => setViewingCoupons({ productName: p.name, coupons: (p as any).couponDetails })}
+                                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                                                >
+                                                                    <Ticket className="size-3" />
+                                                                    {(p as any).couponDetails.length} Linked Coupon{(p as any).couponDetails.length !== 1 ? 's' : ''}
+                                                                </button>
+                                                            )}
+                                                            {!p.couponCode && (!(p as any).couponDetails || (p as any).couponDetails.length === 0) && (
+                                                                <span className="text-xs text-slate-400 italic">None</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${p.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                            {p.stock}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${p.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                            {p.isActive ? 'Active' : 'Inactive'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 text-right flex justify-end items-center gap-2">
+                                                        <ToggleSwitch isOn={p.isActive} onToggle={() => toggleProductStatus(p._id, p.isActive)} />
+                                                        <button onClick={() => handleEditClick(p)} className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors" title="Edit Product">
+                                                            <Edit className="size-4" />
+                                                        </button>
+                                                        <button onClick={() => handleDeleteProduct(p._id)} className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors" title="Delete Product">
+                                                            <Trash2 className="size-4" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeView === 'inventory' && (
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Inventory Management</h2>
+                                    <div className="flex gap-2">
+                                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                                            <div className="size-2 rounded-full bg-red-500"></div> Low Stock (&lt; 10)
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
+                                            <tr>
+                                                <th className="p-4">SKU/Product</th>
+                                                <th className="p-4">Category</th>
+                                                <th className="p-4 text-center">Current Stock</th>
+                                                <th className="p-4 text-center">Status</th>
+                                                <th className="p-4 text-right">Quick Restock</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                            {productsList.map(p => (
+                                                <tr key={p._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                                    <td className="p-4">
+                                                        <div className="font-medium text-slate-900 dark:text-white">{p.name}</div>
+                                                        <div className="text-xs text-slate-400 font-mono uppercase">{p._id.slice(-8)}</div>
+                                                    </td>
+                                                    <td className="p-4 text-slate-600 dark:text-slate-400">
+                                                        {(typeof p.category === 'object' && p.category !== null) ? (p.category as any).name : p.category}
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${p.stock < 10 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                                                            {p.stock}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        {p.stock === 0 ? (
+                                                            <span className="text-xs font-bold text-red-500 flex items-center justify-center gap-1"><X className="size-3" /> Out of Stock</span>
+                                                        ) : p.stock < 10 ? (
+                                                            <span className="text-xs font-bold text-orange-500 flex items-center justify-center gap-1"><Shield className="size-3" /> Reorder Soon</span>
+                                                        ) : (
+                                                            <span className="text-xs font-bold text-teal-500 flex items-center justify-center gap-1"><Shield className="size-3" /> Healthy</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const amount = prompt("How many units to add?");
+                                                                    if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+                                                                        try {
+                                                                            await api.put(`/products/${p._id}`, { stock: p.stock + Number(amount) });
+                                                                            fetchProducts();
+                                                                        } catch (e: any) { showToast(e.response?.data?.msg || "Failed to restock", "error"); }
+                                                                    }
+                                                                }}
+                                                                className="px-3 py-1 bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 rounded-lg text-xs font-bold hover:bg-teal-100 transition-colors"
+                                                            >
+                                                                <Plus className="size-3 inline mr-1" /> Add
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const amount = prompt("How many units to remove?");
+                                                                    if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+                                                                        if (Number(amount) > p.stock) {
+                                                                            showToast("Cannot remove more than current stock", "error");
+                                                                            return;
+                                                                        }
+                                                                        try {
+                                                                            await api.put(`/products/${p._id}`, { stock: Math.max(0, p.stock - Number(amount)) });
+                                                                            fetchProducts();
+                                                                        } catch (e: any) { showToast(e.response?.data?.msg || "Failed to remove stock", "error"); }
+                                                                    }
+                                                                }}
+                                                                className="px-3 py-1 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
+                                                            >
+                                                                <Trash2 className="size-3 inline mr-1" /> Remove
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+
+                        {activeView === 'orders' && (
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Order Management</h2>
+                                    <span className="text-sm text-slate-500">{ordersList.length} Total Orders</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
+                                            <tr>
+                                                <th className="p-4">Order ID / Date</th>
+                                                <th className="p-4">Customer</th>
+                                                <th className="p-4">Total</th>
+                                                <th className="p-4">Status</th>
+                                                <th className="p-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                            {ordersList.map(order => (
+                                                <tr key={order._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                                    <td className="p-4">
+                                                        <div className="font-mono text-xs uppercase text-slate-900 dark:text-white">#{order._id.slice(-8)}</div>
+                                                        <div className="text-xs text-slate-400">{new Date(order.createdAt).toLocaleDateString()}</div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="text-sm font-medium text-slate-900 dark:text-white">{order.shippingInfo?.fullName || "Guest"}</div>
+                                                        <div className="text-xs text-slate-400">{order.user?.email || 'Guest'}</div>
+                                                    </td>
+                                                    <td className="p-4 text-slate-900 dark:text-white font-bold">₹{order.totalAmount.toLocaleString()}</td>
+                                                    <td className="p-4">
+                                                        <select
+                                                            value={order.status}
+                                                            onChange={(e) => handleUpdateOrderStatus(order._id, e.target.value)}
+                                                            className={`text-xs font-bold rounded-lg px-2 py-1 outline-none border-none cursor-pointer
+                                                                ${order.status === 'delivered' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                                    order.status === 'shipped' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                                        order.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                                            'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'}`}
+                                                        >
+                                                            <option value="processing">Processing</option>
+                                                            <option value="shipped">Shipped</option>
+                                                            <option value="delivered">Delivered</option>
+                                                            <option value="cancelled">Cancelled</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="p-4 text-right flex justify-end items-center gap-2">
+                                                        <button
+                                                            onClick={() => handleEditOrderClick(order)}
+                                                            className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
+                                                            title="Edit Order"
+                                                        >
+                                                            <Edit className="size-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteOrder(order._id)}
+                                                            className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                                                            title="Delete Order"
+                                                        >
+                                                            <Trash2 className="size-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setViewingOrder(order)}
+                                                            className="p-2 text-slate-400 hover:text-teal-600 transition-colors"
+                                                            title="View Details"
+                                                        >
+                                                            <Layers className="size-4" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeView === 'messages' && (
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Contact Messages</h2>
+                                    <span className="text-sm text-slate-500">{messagesList.length} Total Messages</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    {loadingData ? (
+                                        <div className="flex items-center justify-center py-16">
+                                            <Loader2 className="animate-spin text-teal-600 size-10" />
+                                        </div>
+                                    ) : messagesList.length === 0 ? (
+                                        <div className="text-center py-16">
+                                            <Mail className="size-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                                            <p className="text-slate-500 dark:text-slate-400 text-lg">No messages yet</p>
+                                            <p className="text-slate-400 dark:text-slate-500 text-sm mt-2">Messages from the contact form will appear here</p>
+                                        </div>
+                                    ) : (
+                                        <table className="w-full text-left">
+                                            <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
+                                                <tr>
+                                                    <th className="p-4">From</th>
+                                                    <th className="p-4">Message</th>
+                                                    <th className="p-4">Date</th>
+                                                    <th className="p-4 text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                                {messagesList.map(msg => (
+                                                    <tr key={msg._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                                        <td className="p-4">
+                                                            <div className="font-medium text-slate-900 dark:text-white">{msg.firstName} {msg.lastName}</div>
+                                                            <div className="text-sm text-slate-400">{msg.email}</div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <p className="text-slate-600 dark:text-slate-400 line-clamp-2 max-w-md">{msg.message}</p>
+                                                        </td>
+                                                        <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
+                                                            {new Date(msg.createdAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="p-4 text-right">
+                                                            <a
+                                                                href={`mailto:${msg.email}?subject=Re: Your message&body=Hi ${msg.firstName},%0D%0A%0D%0A`}
+                                                                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded-lg text-sm font-medium hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
+                                                            >
+                                                                <Mail className="size-4" />
+                                                                Reply
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeView === 'blogs' && (
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Manage Blogs</h2>
+                                    <button onClick={() => setIsAddBlogModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold hover:bg-teal-700 transition-colors">
+                                        <Plus className="size-4" /> Add Blog
+                                    </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    {loadingData ? (
+                                        <div className="flex items-center justify-center py-16">
+                                            <Loader2 className="animate-spin text-teal-600 size-10" />
+                                        </div>
+                                    ) : blogsList.length === 0 ? (
+                                        <div className="text-center py-16">
+                                            <Edit className="size-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                                            <p className="text-slate-500 dark:text-slate-400 text-lg">No blogs yet</p>
+                                            <p className="text-slate-400 dark:text-slate-500 text-sm mt-2">Create your first blog post to get started</p>
+                                        </div>
+                                    ) : (
+                                        <table className="w-full text-left">
+                                            <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
+                                                <tr>
+                                                    <th className="p-4">Title</th>
+                                                    <th className="p-4">Author</th>
+                                                    <th className="p-4">Slug</th>
+                                                    <th className="p-4">Date</th>
+                                                    <th className="p-4 text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                                {blogsList.map(blog => (
+                                                    <tr key={blog._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                                        <td className="p-4">
+                                                            <div className="font-medium text-slate-900 dark:text-white line-clamp-1 max-w-xs">{blog.title}</div>
+                                                            {blog.tags && blog.tags.length > 0 && (
+                                                                <div className="flex gap-1 mt-1">
+                                                                    {blog.tags.slice(0, 2).map((tag, idx) => (
+                                                                        <span key={idx} className="text-xs px-2 py-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded">
+                                                                            {tag}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-4 text-slate-600 dark:text-slate-400">{blog.author}</td>
+                                                        <td className="p-4 text-slate-500 dark:text-slate-400 font-mono text-sm">{blog.slug}</td>
+                                                        <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
+                                                            {new Date(blog.createdAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="p-4 text-right flex justify-end items-center gap-2">
+                                                            <button
+                                                                onClick={() => { setEditingBlog(blog); setIsEditBlogModalOpen(true); }}
+                                                                className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
+                                                                title="Edit Blog"
+                                                            >
+                                                                <Edit className="size-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteBlog(blog._id)}
+                                                                className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                                                                title="Delete Blog"
+                                                            >
+                                                                <Trash2 className="size-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeView === 'categories' && <CategoriesView />}
+
+                        {activeView === 'hubs' && <HubManagerView showToast={showToast} />}
+
+                        {/* Add Product Modal */}
+                        <AnimatePresence>
+                            {
+                                isAddModalOpen && (
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
+                                        >
+                                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New Product</h3>
+                                                <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                    <X className="size-6" />
+                                                </button>
+                                            </div>
+                                            <form onSubmit={handleAddProduct} className="flex flex-col max-h-[90vh]">
+                                                <div className="p-6 space-y-4 overflow-y-auto">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Product Name</label>
+                                                        <div className="relative">
+                                                            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
+                                                            <input
+                                                                required
+                                                                type="text"
+                                                                value={newProduct.name}
+                                                                onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                                                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="e.g. Cordless Drill"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Price (₹)</label>
+                                                            <div className="relative">
+                                                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
+                                                                <input
+                                                                    required
+                                                                    type="number"
+                                                                    value={newProduct.price}
+                                                                    onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                                                                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                    placeholder="0.00"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock</label>
+                                                            <input
+                                                                required
+                                                                type="number"
+                                                                value={newProduct.stock}
+                                                                onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="100"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Brand</label>
+                                                            <input
+                                                                type="text"
+                                                                value={newProduct.brand}
+                                                                onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="e.g. Bosch"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Model Name</label>
+                                                            <input
+                                                                type="text"
+                                                                value={newProduct.modelName}
+                                                                onChange={(e) => setNewProduct({ ...newProduct, modelName: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="e.g. GSB 600"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rating</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.1"
+                                                                min="0"
+                                                                max="5"
+                                                                value={newProduct.rating}
+                                                                onChange={(e) => setNewProduct({ ...newProduct, rating: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="4.5"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Month Sales</label>
+                                                            <input
+                                                                type="number"
+                                                                value={newProduct.lastMonthSales}
+                                                                onChange={(e) => setNewProduct({ ...newProduct, lastMonthSales: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="50"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Coupon Code</label>
+                                                            <input
+                                                                type="text"
+                                                                value={newProduct.couponCode}
+                                                                onChange={(e) => setNewProduct({ ...newProduct, couponCode: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="e.g. SAVE10"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Discount (%)</label>
+                                                            <input
+                                                                type="number"
+                                                                value={newProduct.discountPercentage}
+                                                                onChange={(e) => setNewProduct({ ...newProduct, discountPercentage: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="10"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
+                                                        <select
+                                                            required
+                                                            value={newProduct.category}
+                                                            onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        >
+                                                            <option value="">Select Category</option>
+                                                            {categoriesList.map(cat => (
+                                                                <option key={cat._id} value={cat._id}>{cat.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
+                                                        <div className="relative">
+                                                            <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URLs (comma separated)</label>
+                                                            <div className="relative">
+                                                                <ImageIcon className="absolute left-3 top-3 text-slate-400 size-4" />
+                                                                <textarea
+                                                                    value={newProduct.imagesInput}
+                                                                    onChange={(e) => setNewProduct({ ...newProduct, imagesInput: e.target.value })}
+                                                                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none h-24 resize-none"
+                                                                    placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
+                                                        <textarea
+                                                            value={newProduct.description}
+                                                            onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none h-24 resize-none"
+                                                            placeholder="Product details..."
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsAddModalOpen(false)}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        disabled={isSubmitting}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Create Product'}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </motion.div>
+                                    </div>
+                                )
+                            }
+                        </AnimatePresence >
+
+                        {/* Edit Product Modal */}
+                        <AnimatePresence>
+                            {
+                                isEditModalOpen && editingProduct && (
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
+                                        >
+                                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Product</h3>
+                                                <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                    <X className="size-6" />
+                                                </button>
+                                            </div>
+                                            <form onSubmit={handleUpdateProduct} className="flex flex-col max-h-[90vh]">
+                                                <div className="p-6 space-y-4 overflow-y-auto">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Product Name</label>
+                                                        <div className="relative">
+                                                            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
+                                                            <input
+                                                                required
+                                                                type="text"
+                                                                value={editingProduct.name}
+                                                                onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                                                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="e.g. Cordless Drill"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Price (₹)</label>
+                                                            <div className="relative">
+                                                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
+                                                                <input
+                                                                    required
+                                                                    type="number"
+                                                                    value={editingProduct.price}
+                                                                    onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value })}
+                                                                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                    placeholder="0.00"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock</label>
+                                                            <input
+                                                                required
+                                                                type="number"
+                                                                value={editingProduct.stock}
+                                                                onChange={(e) => setEditingProduct({ ...editingProduct, stock: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="100"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Brand</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingProduct.brand}
+                                                                onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="e.g. Bosch"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Model Name</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingProduct.modelName}
+                                                                onChange={(e) => setEditingProduct({ ...editingProduct, modelName: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="e.g. GSB 600"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rating</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.1"
+                                                                min="0"
+                                                                max="5"
+                                                                value={editingProduct.rating}
+                                                                onChange={(e) => setEditingProduct({ ...editingProduct, rating: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="4.5"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Month Sales</label>
+                                                            <input
+                                                                type="number"
+                                                                value={editingProduct.lastMonthSales}
+                                                                onChange={(e) => setEditingProduct({ ...editingProduct, lastMonthSales: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                                placeholder="50"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
+                                                        <select
+                                                            required
+                                                            value={editingProduct.category}
+                                                            onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        >
+                                                            <option value="">Select Category</option>
+                                                            {categoriesList.map(cat => (
+                                                                <option key={cat._id} value={cat._id}>{cat.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
+                                                        <div className="relative">
+                                                            <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URLs (comma separated)</label>
+                                                            <div className="relative">
+                                                                <ImageIcon className="absolute left-3 top-3 text-slate-400 size-4" />
+                                                                <textarea
+                                                                    value={editingProduct.imagesInput}
+                                                                    onChange={(e) => setEditingProduct({ ...editingProduct, imagesInput: e.target.value })}
+                                                                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none h-24 resize-none"
+                                                                    placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
+                                                        <textarea
+                                                            value={editingProduct.description}
+                                                            onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none h-24 resize-none"
+                                                            placeholder="Product details..."
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsEditModalOpen(false)}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        disabled={isSubmitting}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Update Product'}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </motion.div>
+                                    </div>
+                                )
+                            }
+                        </AnimatePresence >
+
+                        {/* Coupons View */}
+                        {activeView === 'coupons' && (
+                            <div className="space-y-8">
+                                {/* Header & Create Button */}
+                                <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Coupon Management</h2>
+                                        <p className="text-slate-500 dark:text-slate-400 text-sm">Create and manage discount codes</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setIsAddCouponModalOpen(true)}
+                                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg flex items-center gap-2 transition-all shadow-lg shadow-teal-500/20"
+                                    >
+                                        <Plus className="size-4" /> Create Coupon
+                                    </button>
+                                </div>
+
+                                {/* Active Coupons */}
+                                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                    <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                        <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <Ticket className="size-5 text-teal-500" /> Active Coupons
+                                        </h3>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
+                                                <tr>
+                                                    <th className="p-4">Code</th>
+                                                    <th className="p-4">Discount</th>
+                                                    <th className="p-4">Expiry</th>
+                                                    <th className="p-4 text-center">Status</th>
+                                                    <th className="p-4 text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                                {couponsList.filter(c => !c.expiresAt || new Date(c.expiresAt) > new Date()).map(coupon => (
+                                                    <tr key={coupon._id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${!coupon.isActive ? 'opacity-60' : ''}`}>
+                                                        <td className="p-4 font-mono font-bold text-slate-700 dark:text-slate-300">
+                                                            {coupon.code}
+                                                        </td>
+                                                        <td className="p-4 text-slate-600 dark:text-slate-400">
+                                                            {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `$${coupon.discountValue}`}
+                                                        </td>
+                                                        <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
+                                                            {coupon.expiresAt ? new Date(coupon.expiresAt).toLocaleDateString() : 'Never'}
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={coupon.isActive}
+                                                                onChange={() => toggleCouponStatus(coupon._id, coupon.isActive)}
+                                                                className="size-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                                                            />
+                                                        </td>
+                                                        <td className="p-4 text-right">
+                                                            <button onClick={() => handleDeleteCoupon(coupon._id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                                                <Trash2 className="size-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {couponsList.filter(c => !c.expiresAt || new Date(c.expiresAt) > new Date()).length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={5} className="p-8 text-center text-slate-500">No active coupons found.</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Expired Coupons */}
+                                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden opacity-80">
+                                    <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/30">
+                                        <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <Trash2 className="size-5 text-slate-400" /> Expired Coupons
+                                        </h3>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm uppercase">
+                                                <tr>
+                                                    <th className="p-4">Code</th>
+                                                    <th className="p-4">Discount</th>
+                                                    <th className="p-4">Expired On</th>
+                                                    <th className="p-4 text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                                {couponsList.filter(c => c.expiresAt && new Date(c.expiresAt) <= new Date()).map(coupon => (
+                                                    <tr key={coupon._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors bg-red-50/10">
+                                                        <td className="p-4 font-mono font-bold text-slate-500 dark:text-slate-400 line-through">
+                                                            {coupon.code}
+                                                        </td>
+                                                        <td className="p-4 text-slate-500 dark:text-slate-500">
+                                                            {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `$${coupon.discountValue}`}
+                                                        </td>
+                                                        <td className="p-4 text-red-500 text-sm font-medium">
+                                                            {new Date(coupon.expiresAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="p-4 text-right">
+                                                            <button onClick={() => handleDeleteCoupon(coupon._id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                                                <Trash2 className="size-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {couponsList.filter(c => c.expiresAt && new Date(c.expiresAt) <= new Date()).length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={4} className="p-8 text-center text-slate-500">No expired coupons found.</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+
+                        {/* View Order Modal */}
+                        <AnimatePresence>
+                            {viewingOrder && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]"
+                                    >
+                                        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                            <div>
+                                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Order Details</h3>
+                                                <p className="text-sm text-slate-500">#{viewingOrder._id}</p>
+                                            </div>
+                                            <button onClick={() => setViewingOrder(null)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                <X className="size-6" />
+                                            </button>
+                                        </div>
+
+                                        <div className="p-6 overflow-y-auto space-y-6">
+                                            {/* Status & Date */}
+                                            <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                                                <div>
+                                                    <p className="text-xs text-slate-400 uppercase font-bold mb-1">Status</p>
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-bold capitalize ${viewingOrder.status === 'delivered' ? 'bg-green-100 text-green-700' : viewingOrder.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                        {viewingOrder.status}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-xs text-slate-400 uppercase font-bold mb-1">Date</p>
+                                                    <p className="text-sm font-medium text-slate-900 dark:text-white">{new Date(viewingOrder.createdAt).toLocaleString()}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Customer & Shipping */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                                                        <Users className="size-4" /> Customer Details
+                                                    </h4>
+                                                    <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                                                        <p><span className="font-medium text-slate-900 dark:text-white">Name:</span> {viewingOrder.shippingInfo?.fullName || 'N/A'}</p>
+                                                        <p><span className="font-medium text-slate-900 dark:text-white">Email:</span> {viewingOrder.shippingInfo?.email || 'N/A'}</p>
+                                                        <p><span className="font-medium text-slate-900 dark:text-white">Phone:</span> {viewingOrder.shippingInfo?.phone || 'N/A'}</p>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                                                        <Truck className="size-4" /> Shipping Address
+                                                    </h4>
+                                                    <div className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
+                                                        <p>{viewingOrder.shippingInfo?.address || 'N/A'}</p>
+                                                        <p>{viewingOrder.shippingInfo?.city || 'N/A'}, {viewingOrder.shippingInfo?.pincode || viewingOrder.shippingInfo?.zip || ''}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Order Items */}
+                                            <div>
+                                                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                                                    <ShoppingBag className="size-4" /> Ordered Items
+                                                </h4>
+                                                <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                                                    <table className="w-full text-left text-sm">
+                                                        <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500">
+                                                            <tr>
+                                                                <th className="p-3 font-medium">Product</th>
+                                                                <th className="p-3 font-medium text-center">Qty</th>
+                                                                <th className="p-3 font-medium text-right">Price</th>
+                                                                <th className="p-3 font-medium text-right">Total</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                                            {viewingOrder.items.map((item: any, idx: number) => (
+                                                                <tr key={idx}>
+                                                                    <td className="p-3">
+                                                                        <div className="flex items-center gap-3">
+                                                                            {item.product?.image ? (
+                                                                                <img src={item.product?.image} alt={item.product?.name} className="size-10 rounded-lg object-cover bg-slate-100" />
+                                                                            ) : (
+                                                                                <div className="size-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs">IMG</div>
+                                                                            )}
+                                                                            <div>
+                                                                                <p className="font-medium text-slate-900 dark:text-white line-clamp-1">{item.product?.name || 'Unknown Product'}</p>
+                                                                                <p className="text-xs text-slate-400">ID: {item.product?._id || item.product}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-3 text-center text-slate-600 dark:text-slate-400">{item.quantity}</td>
+                                                                    <td className="p-3 text-right text-slate-600 dark:text-slate-400">₹{item.price.toLocaleString()}</td>
+                                                                    <td className="p-3 text-right font-medium text-slate-900 dark:text-white">₹{(item.price * item.quantity).toLocaleString()}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            {/* Payment & Totals */}
+                                            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl space-y-2">
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-slate-500">Payment Method</span>
+                                                    <span className="font-bold text-slate-900 dark:text-white uppercase">{viewingOrder.paymentMethod}</span>
+                                                </div>
+                                                {viewingOrder.coupon && (
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-slate-500">Coupon Applied</span>
+                                                        <span className="font-medium text-teal-600">{viewingOrder.coupon}</span>
+                                                    </div>
+                                                )}
+                                                {viewingOrder.discountAmount > 0 && (
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-slate-500">Discount</span>
+                                                        <span className="font-medium text-green-600">-₹{viewingOrder.discountAmount.toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-end">
+                                                    <span className="text-slate-900 dark:text-white font-bold">Total Amount</span>
+                                                    <span className="text-2xl font-bold text-teal-600">₹{viewingOrder.totalAmount.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-6 border-t border-slate-100 dark:border-slate-700">
+                                            <button
+                                                onClick={() => setViewingOrder(null)}
+                                                className="w-full px-4 py-3 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                </div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Add User Modal */}
+                        <AnimatePresence>
+                            {
+                                isAddUserModalOpen && (
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
+                                        >
+                                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New User</h3>
+                                                <button onClick={() => setIsAddUserModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                    <X className="size-6" />
+                                                </button>
+                                            </div>
+                                            <form onSubmit={handleCreateUser} className="flex flex-col max-h-[90vh]">
+                                                <div className="p-6 space-y-4 overflow-y-auto">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
+                                                            <input
+                                                                required
+                                                                type="text"
+                                                                value={newUser.firstName}
+                                                                onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
+                                                            <input
+                                                                required
+                                                                type="text"
+                                                                value={newUser.lastName}
+                                                                onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
+                                                        <input
+                                                            required
+                                                            type="email"
+                                                            value={newUser.email}
+                                                            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
+                                                        <input
+                                                            type="text"
+                                                            value={newUser.phone}
+                                                            onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
+                                                        <input
+                                                            required
+                                                            type="password"
+                                                            value={newUser.password}
+                                                            onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Role</label>
+                                                        <select
+                                                            value={newUser.role}
+                                                            onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        >
+                                                            <option value="user">User</option>
+                                                            <option value="admin">Admin</option>
+                                                            <option value="warehouse">Warehouse</option>
+                                                            <option value="accountant">Accountant</option>
+                                                        </select>
+                                                    </div>
+                                                    {newUser.role === 'warehouse' && (
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-2"><Network className="size-4 text-indigo-500" /> Assign to Hub</label>
+                                                            <select
+                                                                required
+                                                                value={newUser.hubId || ""}
+                                                                onChange={(e) => setNewUser({ ...newUser, hubId: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                            >
+                                                                <option value="">-- Select Fulfillment Hub --</option>
+                                                                {hubsList.map((h: any) => <option key={h._id} value={h._id}>{h.name}</option>)}
+                                                            </select>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsAddUserModalOpen(false)}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        disabled={isSubmitting}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Create User'}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </motion.div>
+                                    </div>
+                                )
+                            }
+                        </AnimatePresence >
+
+
+
+                        {/* Edit User Modal */}
+                        <AnimatePresence>
+                            {
+                                isEditUserModalOpen && editingUser && (
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
+                                        >
+                                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit User</h3>
+                                                <button onClick={() => setIsEditUserModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                    <X className="size-6" />
+                                                </button>
+                                            </div>
+                                            <form onSubmit={handleUpdateUser} className="flex flex-col max-h-[90vh]">
+                                                <div className="p-6 space-y-4 overflow-y-auto">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingUser.firstName || ''}
+                                                                onChange={(e) => setEditingUser({ ...editingUser, firstName: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingUser.lastName || ''}
+                                                                onChange={(e) => setEditingUser({ ...editingUser, lastName: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
+                                                        <input
+                                                            type="email"
+                                                            value={editingUser.email || ''}
+                                                            onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
+                                                        <input
+                                                            type="text"
+                                                            value={editingUser.phone || ''}
+                                                            onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password (leave blank to keep current)</label>
+                                                        <input
+                                                            type="password"
+                                                            value={editingUser.password || ''}
+                                                            onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Role</label>
+                                                        <select
+                                                            value={editingUser.role || ''}
+                                                            onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        >
+                                                            <option value="user">User</option>
+                                                            <option value="admin">Admin</option>
+                                                            <option value="warehouse">Warehouse</option>
+                                                            <option value="accountant">Accountant</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsEditUserModalOpen(false)}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        disabled={isSubmitting}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Update User'}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </motion.div>
+                                    </div>
+                                )
+                            }
+                        </AnimatePresence >
+
+                        {/* Edit Order Modal */}
+                        <AnimatePresence>
+                            {
+                                isEditOrderModalOpen && editingOrder && (
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
+                                        >
+                                            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Order Details</h3>
+                                                <button onClick={() => setIsEditOrderModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                    <X className="size-6" />
+                                                </button>
+                                            </div>
+                                            <form onSubmit={handleUpdateOrder} className="flex flex-col max-h-[90vh]">
+                                                <div className="p-6 space-y-4 overflow-y-auto">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Status</label>
+                                                        <select
+                                                            value={editingOrder.status}
+                                                            onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        >
+                                                            <option value="processing">Processing</option>
+                                                            <option value="shipped">Shipped</option>
+                                                            <option value="delivered">Delivered</option>
+                                                            <option value="cancelled">Cancelled</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
+                                                        <input
+                                                            type="text"
+                                                            value={editingOrder.fullName}
+                                                            onChange={(e) => setEditingOrder({ ...editingOrder, fullName: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Address</label>
+                                                        <textarea
+                                                            value={editingOrder.address}
+                                                            onChange={(e) => setEditingOrder({ ...editingOrder, address: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none min-h-[100px]"
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">City</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingOrder.city}
+                                                                onChange={(e) => setEditingOrder({ ...editingOrder, city: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Pincode</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingOrder.pincode}
+                                                                onChange={(e) => setEditingOrder({ ...editingOrder, pincode: e.target.value })}
+                                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
+                                                        <input
+                                                            type="text"
+                                                            value={editingOrder.phone}
+                                                            onChange={(e) => setEditingOrder({ ...editingOrder, phone: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsEditOrderModalOpen(false)}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        disabled={isSubmitting}
+                                                        className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Save Changes'}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </motion.div>
+                                    </div>
+                                )
+                            }
+                        </AnimatePresence >
+
+                        {/* Create Coupon Modal */}
+                        <AnimatePresence>
+                            {isAddCouponModalOpen && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                                     <motion.div
                                         initial={{ opacity: 0, scale: 0.95 }}
@@ -2071,80 +2416,74 @@ const AdminDashboard = () => {
                                         className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
                                     >
                                         <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New User</h3>
-                                            <button onClick={() => setIsAddUserModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Create New Coupon</h3>
+                                            <button onClick={() => setIsAddCouponModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
                                                 <X className="size-6" />
                                             </button>
                                         </div>
-                                        <form onSubmit={handleCreateUser} className="flex flex-col max-h-[90vh]">
+                                        <form onSubmit={handleCreateCoupon} className="flex flex-col max-h-[90vh]">
                                             <div className="p-6 space-y-4 overflow-y-auto">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Code</label>
+                                                    <input
+                                                        required
+                                                        type="text"
+                                                        value={newCoupon.code}
+                                                        onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
+                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none font-mono"
+                                                        placeholder="SUMMER25"
+                                                    />
+                                                </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
-                                                        <input
-                                                            required
-                                                            type="text"
-                                                            value={newUser.firstName}
-                                                            onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Type</label>
+                                                        <select
+                                                            value={newCoupon.discountType}
+                                                            onChange={(e) => setNewCoupon({ ...newCoupon, discountType: e.target.value })}
                                                             className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                        />
+                                                        >
+                                                            <option value="percentage">Percentage (%)</option>
+                                                            <option value="fixed">Fixed Amount ($)</option>
+                                                        </select>
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Value</label>
                                                         <input
                                                             required
-                                                            type="text"
-                                                            value={newUser.lastName}
-                                                            onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
+                                                            type="number"
+                                                            min="0"
+                                                            value={newCoupon.discountValue}
+                                                            onChange={(e) => setNewCoupon({ ...newCoupon, discountValue: Number(e.target.value) })}
                                                             className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
                                                         />
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Expiry Date</label>
                                                     <input
-                                                        required
-                                                        type="email"
-                                                        value={newUser.email}
-                                                        onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                                                        type="date"
+                                                        value={newCoupon.expiresAt}
+                                                        onChange={(e) => setNewCoupon({ ...newCoupon, expiresAt: e.target.value })}
                                                         className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
                                                     />
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
+                                                <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
                                                     <input
-                                                        type="text"
-                                                        value={newUser.phone}
-                                                        onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        type="checkbox"
+                                                        id="newCouponActive"
+                                                        checked={newCoupon.isActive}
+                                                        onChange={(e) => setNewCoupon({ ...newCoupon, isActive: e.target.checked })}
+                                                        className="size-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                                                     />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
-                                                    <input
-                                                        required
-                                                        type="password"
-                                                        value={newUser.password}
-                                                        onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Role</label>
-                                                    <select
-                                                        value={newUser.role}
-                                                        onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    >
-                                                        <option value="user">User</option>
-                                                        <option value="admin">Admin</option>
-                                                    </select>
+                                                    <label htmlFor="newCouponActive" className="text-sm font-medium text-slate-900 dark:text-white cursor-pointer">
+                                                        Active immediately
+                                                    </label>
                                                 </div>
                                             </div>
                                             <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
                                                 <button
                                                     type="button"
-                                                    onClick={() => setIsAddUserModalOpen(false)}
+                                                    onClick={() => setIsAddCouponModalOpen(false)}
                                                     className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                                                 >
                                                     Cancel
@@ -2154,22 +2493,18 @@ const AdminDashboard = () => {
                                                     disabled={isSubmitting}
                                                     className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
                                                 >
-                                                    {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Create User'}
+                                                    {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Create Coupon'}
                                                 </button>
                                             </div>
                                         </form>
                                     </motion.div>
                                 </div>
-                            )
-                        }
-                    </AnimatePresence >
+                            )}
+                        </AnimatePresence>
 
-
-
-                    {/* Edit User Modal */}
-                    <AnimatePresence>
-                        {
-                            isEditUserModalOpen && editingUser && (
+                        {/* Edit Coupon Modal */}
+                        <AnimatePresence>
+                            {isEditCouponModalOpen && editingCoupon && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                                     <motion.div
                                         initial={{ opacity: 0, scale: 0.95 }}
@@ -2178,167 +2513,73 @@ const AdminDashboard = () => {
                                         className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
                                     >
                                         <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit User</h3>
-                                            <button onClick={() => setIsEditUserModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Coupon</h3>
+                                            <button onClick={() => setIsEditCouponModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
                                                 <X className="size-6" />
                                             </button>
                                         </div>
-                                        <form onSubmit={handleUpdateUser} className="flex flex-col max-h-[90vh]">
+                                        <form onSubmit={handleUpdateCoupon} className="flex flex-col max-h-[90vh]">
                                             <div className="p-6 space-y-4 overflow-y-auto">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Code</label>
+                                                    <input
+                                                        required
+                                                        type="text"
+                                                        value={editingCoupon.code}
+                                                        onChange={(e) => setEditingCoupon({ ...editingCoupon, code: e.target.value.toUpperCase() })}
+                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none font-mono"
+                                                    />
+                                                </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
-                                                        <input
-                                                            type="text"
-                                                            value={editingUser.firstName || ''}
-                                                            onChange={(e) => setEditingUser({ ...editingUser, firstName: e.target.value })}
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Type</label>
+                                                        <select
+                                                            value={editingCoupon.discountType}
+                                                            onChange={(e) => setEditingCoupon({ ...editingCoupon, discountType: e.target.value })}
                                                             className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                        />
+                                                        >
+                                                            <option value="percentage">Percentage (%)</option>
+                                                            <option value="fixed">Fixed Amount ($)</option>
+                                                        </select>
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Value</label>
                                                         <input
-                                                            type="text"
-                                                            value={editingUser.lastName || ''}
-                                                            onChange={(e) => setEditingUser({ ...editingUser, lastName: e.target.value })}
+                                                            required
+                                                            type="number"
+                                                            min="0"
+                                                            value={editingCoupon.discountValue}
+                                                            onChange={(e) => setEditingCoupon({ ...editingCoupon, discountValue: Number(e.target.value) })}
                                                             className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
                                                         />
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Expiry Date</label>
                                                     <input
-                                                        type="email"
-                                                        value={editingUser.email || ''}
-                                                        onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                                                        type="date"
+                                                        value={editingCoupon.expiresAt ? new Date(editingCoupon.expiresAt).toISOString().split('T')[0] : ''}
+                                                        onChange={(e) => setEditingCoupon({ ...editingCoupon, expiresAt: e.target.value })}
                                                         className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
                                                     />
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
+                                                <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
                                                     <input
-                                                        type="text"
-                                                        value={editingUser.phone || ''}
-                                                        onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        type="checkbox"
+                                                        id="editCouponActive"
+                                                        checked={editingCoupon.isActive}
+                                                        onChange={(e) => setEditingCoupon({ ...editingCoupon, isActive: e.target.checked })}
+                                                        className="size-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                                                     />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password (leave blank to keep current)</label>
-                                                    <input
-                                                        type="password"
-                                                        value={editingUser.password || ''}
-                                                        onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    />
+                                                    <label htmlFor="editCouponActive" className="text-sm font-medium text-slate-900 dark:text-white cursor-pointer">
+                                                        Active
+                                                    </label>
                                                 </div>
                                             </div>
                                             <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
                                                 <button
                                                     type="button"
-                                                    onClick={() => setIsEditUserModalOpen(false)}
-                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    type="submit"
-                                                    disabled={isSubmitting}
-                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
-                                                >
-                                                    {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Update User'}
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </motion.div>
-                                </div>
-                            )
-                        }
-                    </AnimatePresence >
-
-                    {/* Edit Order Modal */}
-                    <AnimatePresence>
-                        {
-                            isEditOrderModalOpen && editingOrder && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.95 }}
-                                        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
-                                    >
-                                        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Order Details</h3>
-                                            <button onClick={() => setIsEditOrderModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                                <X className="size-6" />
-                                            </button>
-                                        </div>
-                                        <form onSubmit={handleUpdateOrder} className="flex flex-col max-h-[90vh]">
-                                            <div className="p-6 space-y-4 overflow-y-auto">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Status</label>
-                                                    <select
-                                                        value={editingOrder.status}
-                                                        onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    >
-                                                        <option value="processing">Processing</option>
-                                                        <option value="shipped">Shipped</option>
-                                                        <option value="delivered">Delivered</option>
-                                                        <option value="cancelled">Cancelled</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
-                                                    <input
-                                                        type="text"
-                                                        value={editingOrder.fullName}
-                                                        onChange={(e) => setEditingOrder({ ...editingOrder, fullName: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Address</label>
-                                                    <textarea
-                                                        value={editingOrder.address}
-                                                        onChange={(e) => setEditingOrder({ ...editingOrder, address: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none min-h-[100px]"
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">City</label>
-                                                        <input
-                                                            type="text"
-                                                            value={editingOrder.city}
-                                                            onChange={(e) => setEditingOrder({ ...editingOrder, city: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Pincode</label>
-                                                        <input
-                                                            type="text"
-                                                            value={editingOrder.pincode}
-                                                            onChange={(e) => setEditingOrder({ ...editingOrder, pincode: e.target.value })}
-                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
-                                                    <input
-                                                        type="text"
-                                                        value={editingOrder.phone}
-                                                        onChange={(e) => setEditingOrder({ ...editingOrder, phone: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsEditOrderModalOpen(false)}
+                                                    onClick={() => setIsEditCouponModalOpen(false)}
                                                     className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                                                 >
                                                     Cancel
@@ -2354,564 +2595,371 @@ const AdminDashboard = () => {
                                         </form>
                                     </motion.div>
                                 </div>
-                            )
-                        }
-                    </AnimatePresence >
+                            )}
+                        </AnimatePresence>
 
-                    {/* Create Coupon Modal */}
-                    <AnimatePresence>
-                        {isAddCouponModalOpen && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
-                                >
-                                    <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Create New Coupon</h3>
-                                        <button onClick={() => setIsAddCouponModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                            <X className="size-6" />
-                                        </button>
-                                    </div>
-                                    <form onSubmit={handleCreateCoupon} className="flex flex-col max-h-[90vh]">
-                                        <div className="p-6 space-y-4 overflow-y-auto">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Code</label>
-                                                <input
-                                                    required
-                                                    type="text"
-                                                    value={newCoupon.code}
-                                                    onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none font-mono"
-                                                    placeholder="SUMMER25"
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Type</label>
-                                                    <select
-                                                        value={newCoupon.discountType}
-                                                        onChange={(e) => setNewCoupon({ ...newCoupon, discountType: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    >
-                                                        <option value="percentage">Percentage (%)</option>
-                                                        <option value="fixed">Fixed Amount ($)</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Value</label>
-                                                    <input
-                                                        required
-                                                        type="number"
-                                                        min="0"
-                                                        value={newCoupon.discountValue}
-                                                        onChange={(e) => setNewCoupon({ ...newCoupon, discountValue: Number(e.target.value) })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Expiry Date</label>
-                                                <input
-                                                    type="date"
-                                                    value={newCoupon.expiresAt}
-                                                    onChange={(e) => setNewCoupon({ ...newCoupon, expiresAt: e.target.value })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                />
-                                            </div>
-                                            <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                                                <input
-                                                    type="checkbox"
-                                                    id="newCouponActive"
-                                                    checked={newCoupon.isActive}
-                                                    onChange={(e) => setNewCoupon({ ...newCoupon, isActive: e.target.checked })}
-                                                    className="size-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-                                                />
-                                                <label htmlFor="newCouponActive" className="text-sm font-medium text-slate-900 dark:text-white cursor-pointer">
-                                                    Active immediately
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsAddCouponModalOpen(false)}
-                                                className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={isSubmitting}
-                                                className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
-                                            >
-                                                {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Create Coupon'}
+                        {/* Add Blog Modal */}
+                        <AnimatePresence>
+                            {isAddBlogModalOpen && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-700"
+                                    >
+                                        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Create New Blog</h3>
+                                            <button onClick={() => setIsAddBlogModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                <X className="size-6" />
                                             </button>
                                         </div>
-                                    </form>
-                                </motion.div>
-                            </div>
-                        )}
-                    </AnimatePresence>
-
-                    {/* Edit Coupon Modal */}
-                    <AnimatePresence>
-                        {isEditCouponModalOpen && editingCoupon && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700"
-                                >
-                                    <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Coupon</h3>
-                                        <button onClick={() => setIsEditCouponModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                            <X className="size-6" />
-                                        </button>
-                                    </div>
-                                    <form onSubmit={handleUpdateCoupon} className="flex flex-col max-h-[90vh]">
-                                        <div className="p-6 space-y-4 overflow-y-auto">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Code</label>
-                                                <input
-                                                    required
-                                                    type="text"
-                                                    value={editingCoupon.code}
-                                                    onChange={(e) => setEditingCoupon({ ...editingCoupon, code: e.target.value.toUpperCase() })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none font-mono"
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
+                                        <form onSubmit={handleCreateBlog} className="flex flex-col max-h-[90vh]">
+                                            <div className="p-6 space-y-4 overflow-y-auto">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Type</label>
-                                                    <select
-                                                        value={editingCoupon.discountType}
-                                                        onChange={(e) => setEditingCoupon({ ...editingCoupon, discountType: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    >
-                                                        <option value="percentage">Percentage (%)</option>
-                                                        <option value="fixed">Fixed Amount ($)</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Value</label>
-                                                    <input
-                                                        required
-                                                        type="number"
-                                                        min="0"
-                                                        value={editingCoupon.discountValue}
-                                                        onChange={(e) => setEditingCoupon({ ...editingCoupon, discountValue: Number(e.target.value) })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Expiry Date</label>
-                                                <input
-                                                    type="date"
-                                                    value={editingCoupon.expiresAt ? new Date(editingCoupon.expiresAt).toISOString().split('T')[0] : ''}
-                                                    onChange={(e) => setEditingCoupon({ ...editingCoupon, expiresAt: e.target.value })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                />
-                                            </div>
-                                            <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                                                <input
-                                                    type="checkbox"
-                                                    id="editCouponActive"
-                                                    checked={editingCoupon.isActive}
-                                                    onChange={(e) => setEditingCoupon({ ...editingCoupon, isActive: e.target.checked })}
-                                                    className="size-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-                                                />
-                                                <label htmlFor="editCouponActive" className="text-sm font-medium text-slate-900 dark:text-white cursor-pointer">
-                                                    Active
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsEditCouponModalOpen(false)}
-                                                className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={isSubmitting}
-                                                className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
-                                            >
-                                                {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Save Changes'}
-                                            </button>
-                                        </div>
-                                    </form>
-                                </motion.div>
-                            </div>
-                        )}
-                    </AnimatePresence>
-
-                    {/* Add Blog Modal */}
-                    <AnimatePresence>
-                        {isAddBlogModalOpen && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-700"
-                                >
-                                    <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Create New Blog</h3>
-                                        <button onClick={() => setIsAddBlogModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                            <X className="size-6" />
-                                        </button>
-                                    </div>
-                                    <form onSubmit={handleCreateBlog} className="flex flex-col max-h-[90vh]">
-                                        <div className="p-6 space-y-4 overflow-y-auto">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
-                                                <input
-                                                    required
-                                                    type="text"
-                                                    value={newBlog.title}
-                                                    onChange={(e) => setNewBlog({ ...newBlog, title: e.target.value })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    placeholder="Enter blog title"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Slug (URL-friendly)</label>
-                                                <input
-                                                    required
-                                                    type="text"
-                                                    value={newBlog.slug}
-                                                    onChange={(e) => setNewBlog({ ...newBlog, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
-                                                    placeholder="my-blog-post"
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Author</label>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
                                                     <input
                                                         required
                                                         type="text"
-                                                        value={newBlog.author}
-                                                        onChange={(e) => setNewBlog({ ...newBlog, author: e.target.value })}
+                                                        value={newBlog.title}
+                                                        onChange={(e) => setNewBlog({ ...newBlog, title: e.target.value })}
                                                         className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                        placeholder="John Doe"
+                                                        placeholder="Enter blog title"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
-                                                    <input
-                                                        type="url"
-                                                        value={newBlog.image}
-                                                        onChange={(e) => setNewBlog({ ...newBlog, image: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                        placeholder="https://..."
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tags (comma-separated)</label>
-                                                <input
-                                                    type="text"
-                                                    value={newBlog.tags.join(', ')}
-                                                    onChange={(e) => setNewBlog({ ...newBlog, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t) })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    placeholder="technology, tools, tips"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Content</label>
-                                                <textarea
-                                                    required
-                                                    value={newBlog.content}
-                                                    onChange={(e) => setNewBlog({ ...newBlog, content: e.target.value })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none min-h-[200px] resize-y"
-                                                    placeholder="Write your blog content here..."
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsAddBlogModalOpen(false)}
-                                                className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={isSubmitting}
-                                                className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
-                                            >
-                                                {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Create Blog'}
-                                            </button>
-                                        </div>
-                                    </form>
-                                </motion.div>
-                            </div>
-                        )}
-                    </AnimatePresence>
-
-                    {/* Edit Blog Modal */}
-                    <AnimatePresence>
-                        {isEditBlogModalOpen && editingBlog && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-700"
-                                >
-                                    <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Blog</h3>
-                                        <button onClick={() => setIsEditBlogModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                            <X className="size-6" />
-                                        </button>
-                                    </div>
-                                    <form onSubmit={handleUpdateBlog} className="flex flex-col max-h-[90vh]">
-                                        <div className="p-6 space-y-4 overflow-y-auto">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
-                                                <input
-                                                    required
-                                                    type="text"
-                                                    value={editingBlog.title}
-                                                    onChange={(e) => setEditingBlog({ ...editingBlog, title: e.target.value })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Slug (URL-friendly)</label>
-                                                <input
-                                                    required
-                                                    type="text"
-                                                    value={editingBlog.slug}
-                                                    onChange={(e) => setEditingBlog({ ...editingBlog, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Author</label>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Slug (URL-friendly)</label>
                                                     <input
                                                         required
                                                         type="text"
-                                                        value={editingBlog.author}
-                                                        onChange={(e) => setEditingBlog({ ...editingBlog, author: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        value={newBlog.slug}
+                                                        onChange={(e) => setNewBlog({ ...newBlog, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
+                                                        placeholder="my-blog-post"
                                                     />
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
-                                                    <input
-                                                        type="url"
-                                                        value={editingBlog.image}
-                                                        onChange={(e) => setEditingBlog({ ...editingBlog, image: e.target.value })}
-                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tags (comma-separated)</label>
-                                                <input
-                                                    type="text"
-                                                    value={editingBlog.tags.join(', ')}
-                                                    onChange={(e) => setEditingBlog({ ...editingBlog, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t) })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Content</label>
-                                                <textarea
-                                                    required
-                                                    value={editingBlog.content}
-                                                    onChange={(e) => setEditingBlog({ ...editingBlog, content: e.target.value })}
-                                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none min-h-[200px] resize-y"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsEditBlogModalOpen(false)}
-                                                className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={isSubmitting}
-                                                className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
-                                            >
-                                                {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Save Changes'}
-                                            </button>
-                                        </div>
-                                    </form>
-                                </motion.div>
-                            </div>
-                        )}
-                    </AnimatePresence>
-
-                    {activeView === 'settings' && (
-                        <div className="space-y-6">
-                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Site Settings & Controls</h2>
-                                <p className="text-slate-500 dark:text-slate-400 mt-1">Configure global application states, features, and visibility of homepage sections.</p>
-                            </div>
-
-                            {loadingSettings && !siteSettings ? (
-                                <div className="flex items-center justify-center p-12">
-                                    <Loader2 className="animate-spin size-8 text-teal-600" />
-                                </div>
-                            ) : (
-                                siteSettings && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* Authentication Controls */}
-                                        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 space-y-6">
-                                            <div className="border-b border-slate-100 dark:border-slate-700 pb-4">
-                                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Authentication & Access</h3>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Control registration and login options for the website.</p>
-                                            </div>
-
-                                            <div className="space-y-4">
-                                                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
-                                                    <ToggleSwitch
-                                                        isOn={siteSettings.components.Signup !== false}
-                                                        onToggle={() => toggleSettingComponent('Signup', siteSettings.components.Signup !== false)}
-                                                        label="Allow Public Signups (Registration)"
-                                                        description="When disabled, new users cannot register an account. Existing accounts can still login."
-                                                    />
-                                                </div>
-
-                                                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
-                                                    <ToggleSwitch
-                                                        isOn={siteSettings.components.Login !== false}
-                                                        onToggle={() => toggleSettingComponent('Login', siteSettings.components.Login !== false)}
-                                                        label="Allow Public Logins"
-                                                        description="When disabled, public login is blocked (admins and staff bypass this restriction to avoid lockout)."
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Home Page Sections Control */}
-                                        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 space-y-6">
-                                            <div className="border-b border-slate-100 dark:border-slate-700 pb-4">
-                                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Homepage Sections Visibility</h3>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Dynamically enable or disable major landing page features.</p>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2">
-                                                {[
-                                                    { key: 'Hero', label: 'Hero Banner', desc: 'Main intro banner section at the top of the homepage.' },
-                                                    { key: 'WhoWeAre', label: 'Who We Are', desc: 'About section describing the company and goals.' },
-                                                    { key: 'WhatWeOffer', label: 'What We Offer', desc: 'Listing of key services or features provided.' },
-                                                    { key: 'FeaturedProducts', label: 'Featured Products Slider', desc: 'Showcase highlighted products to homepage visitors.' },
-                                                    { key: 'ShopSection', label: 'Shop/Products Grid', desc: 'Main product list catalog layout.' },
-                                                    { key: 'Contact', label: 'Contact Form & Location', desc: 'Contact page form and map details.' },
-                                                    { key: 'Footer', label: 'Footer Bar', desc: 'Bottom navigation links and copyright information.' }
-                                                ].map((section) => (
-                                                    <div key={section.key} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                                                        <ToggleSwitch
-                                                            isOn={siteSettings.components[section.key] !== false}
-                                                            onToggle={() => toggleSettingComponent(section.key, siteSettings.components[section.key] !== false)}
-                                                            label={section.label}
-                                                            description={section.desc}
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Author</label>
+                                                        <input
+                                                            required
+                                                            type="text"
+                                                            value={newBlog.author}
+                                                            onChange={(e) => setNewBlog({ ...newBlog, author: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                            placeholder="John Doe"
                                                         />
                                                     </div>
-                                                ))}
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
+                                                        <input
+                                                            type="url"
+                                                            value={newBlog.image}
+                                                            onChange={(e) => setNewBlog({ ...newBlog, image: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                            placeholder="https://..."
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tags (comma-separated)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={newBlog.tags.join(', ')}
+                                                        onChange={(e) => setNewBlog({ ...newBlog, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t) })}
+                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        placeholder="technology, tools, tips"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Content</label>
+                                                    <textarea
+                                                        required
+                                                        value={newBlog.content}
+                                                        onChange={(e) => setNewBlog({ ...newBlog, content: e.target.value })}
+                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none min-h-[200px] resize-y"
+                                                        placeholder="Write your blog content here..."
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsAddBlogModalOpen(false)}
+                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={isSubmitting}
+                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
+                                                >
+                                                    {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Create Blog'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </motion.div>
+                                </div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Edit Blog Modal */}
+                        <AnimatePresence>
+                            {isEditBlogModalOpen && editingBlog && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-700"
+                                    >
+                                        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Blog</h3>
+                                            <button onClick={() => setIsEditBlogModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                <X className="size-6" />
+                                            </button>
+                                        </div>
+                                        <form onSubmit={handleUpdateBlog} className="flex flex-col max-h-[90vh]">
+                                            <div className="p-6 space-y-4 overflow-y-auto">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
+                                                    <input
+                                                        required
+                                                        type="text"
+                                                        value={editingBlog.title}
+                                                        onChange={(e) => setEditingBlog({ ...editingBlog, title: e.target.value })}
+                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Slug (URL-friendly)</label>
+                                                    <input
+                                                        required
+                                                        type="text"
+                                                        value={editingBlog.slug}
+                                                        onChange={(e) => setEditingBlog({ ...editingBlog, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none font-mono text-sm"
+                                                    />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Author</label>
+                                                        <input
+                                                            required
+                                                            type="text"
+                                                            value={editingBlog.author}
+                                                            onChange={(e) => setEditingBlog({ ...editingBlog, author: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
+                                                        <input
+                                                            type="url"
+                                                            value={editingBlog.image}
+                                                            onChange={(e) => setEditingBlog({ ...editingBlog, image: e.target.value })}
+                                                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tags (comma-separated)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editingBlog.tags.join(', ')}
+                                                        onChange={(e) => setEditingBlog({ ...editingBlog, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t) })}
+                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Content</label>
+                                                    <textarea
+                                                        required
+                                                        value={editingBlog.content}
+                                                        onChange={(e) => setEditingBlog({ ...editingBlog, content: e.target.value })}
+                                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-teal-500 outline-none min-h-[200px] resize-y"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="p-6 border-t border-slate-100 dark:border-slate-700 flex gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsEditBlogModalOpen(false)}
+                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={isSubmitting}
+                                                    className="flex-1 px-4 py-2.5 rounded-xl font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-lg hover:shadow-teal-500/30 flex items-center justify-center gap-2"
+                                                >
+                                                    {isSubmitting ? <Loader2 className="animate-spin size-5" /> : 'Save Changes'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </motion.div>
+                                </div>
+                            )}
+                        </AnimatePresence>
+
+                        {activeView === 'settings' && (
+                            <div className="space-y-6">
+                                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Site Settings & Controls</h2>
+                                    <p className="text-slate-500 dark:text-slate-400 mt-1">Configure global application states, features, and visibility of homepage sections.</p>
+                                </div>
+
+                                {loadingSettings && !siteSettings ? (
+                                    <div className="flex items-center justify-center p-12">
+                                        <Loader2 className="animate-spin size-8 text-teal-600" />
+                                    </div>
+                                ) : (
+                                    siteSettings && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Authentication Controls */}
+                                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 space-y-6">
+                                                <div className="border-b border-slate-100 dark:border-slate-700 pb-4">
+                                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Authentication & Access</h3>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Control registration and login options for the website.</p>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                                                        <ToggleSwitch
+                                                            isOn={siteSettings.components.Signup !== false}
+                                                            onToggle={() => toggleSettingComponent('Signup', siteSettings.components.Signup !== false)}
+                                                            label="Allow Public Signups (Registration)"
+                                                            description="When disabled, new users cannot register an account. Existing accounts can still login."
+                                                        />
+                                                    </div>
+
+                                                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                                                        <ToggleSwitch
+                                                            isOn={siteSettings.components.Login !== false}
+                                                            onToggle={() => toggleSettingComponent('Login', siteSettings.components.Login !== false)}
+                                                            label="Allow Public Logins"
+                                                            description="When disabled, public login is blocked (admins and staff bypass this restriction to avoid lockout)."
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Home Page Sections Control */}
+                                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 space-y-6">
+                                                <div className="border-b border-slate-100 dark:border-slate-700 pb-4">
+                                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Homepage Sections Visibility</h3>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Dynamically enable or disable major landing page features.</p>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2">
+                                                    {[
+                                                        { key: 'Hero', label: 'Hero Banner', desc: 'Main intro banner section at the top of the homepage.' },
+                                                        { key: 'WhoWeAre', label: 'Who We Are', desc: 'About section describing the company and goals.' },
+                                                        { key: 'WhatWeOffer', label: 'What We Offer', desc: 'Listing of key services or features provided.' },
+                                                        { key: 'FeaturedProducts', label: 'Featured Products Slider', desc: 'Showcase highlighted products to homepage visitors.' },
+                                                        { key: 'ShopSection', label: 'Shop/Products Grid', desc: 'Main product list catalog layout.' },
+                                                        { key: 'Contact', label: 'Contact Form & Location', desc: 'Contact page form and map details.' },
+                                                        { key: 'Footer', label: 'Footer Bar', desc: 'Bottom navigation links and copyright information.' }
+                                                    ].map((section) => (
+                                                        <div key={section.key} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                                                            <ToggleSwitch
+                                                                isOn={siteSettings.components[section.key] !== false}
+                                                                onToggle={() => toggleSettingComponent(section.key, siteSettings.components[section.key] !== false)}
+                                                                label={section.label}
+                                                                description={section.desc}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
+                                    )
+                                )}
+                            </div>
+                        )}
+
+                        {activeView === 'dynamic_routes' && (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                                <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                    <div>
+                                        <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><Activity className="size-6 text-teal-500" /> System Routing Engine</h1>
+                                        <p className="text-sm text-slate-500 mt-1">Manage global system endpoints and application features.</p>
                                     </div>
-                                )
-                            )}
-                        </div>
-                    )}
-
-                    {activeView === 'dynamic_routes' && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                            <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-                                <div>
-                                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><Activity className="size-6 text-teal-500" /> System Routing Engine</h1>
-                                    <p className="text-sm text-slate-500 mt-1">Manage global system endpoints and application features.</p>
+                                    <button
+                                        onClick={() => {
+                                            setEditingRoute(null);
+                                            setNewRoute({ path: "", name: "", description: "", isActive: true });
+                                            setIsAddRouteModalOpen(true);
+                                        }}
+                                        className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl font-medium transition shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40"
+                                    >
+                                        <Plus className="size-4" /> Mount Endpoint
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        setEditingRoute(null);
-                                        setNewRoute({ path: "", name: "", description: "", isActive: true });
-                                        setIsAddRouteModalOpen(true);
-                                    }}
-                                    className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl font-medium transition shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40"
-                                >
-                                    <Plus className="size-4" /> Mount Endpoint
-                                </button>
-                            </div>
 
-                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
-                                        <tr>
-                                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm">Status</th>
-                                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm">System Label</th>
-                                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm">Network Pattern</th>
-                                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm">Purpose</th>
-                                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                        {routes.length === 0 ? (
+                                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
                                             <tr>
-                                                <td colSpan={5} className="p-8 text-center text-slate-500">No active system routes parsed. Mount an endpoint to begin.</td>
+                                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm">Status</th>
+                                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm">System Label</th>
+                                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm">Network Pattern</th>
+                                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm">Purpose</th>
+                                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-sm text-right">Actions</th>
                                             </tr>
-                                        ) : (
-                                            routes.map((route) => (
-                                                <tr key={route._id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition ${!route.isActive ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}>
-                                                    <td className="p-4">
-                                                        <button
-                                                            onClick={() => handleToggleRoute(route)}
-                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition ${route.isActive ? 'bg-emerald-100/50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50' : 'bg-red-100/50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50'}`}
-                                                        >
-                                                            <Power className="size-3.5" /> {route.isActive ? 'ONLINE' : 'OFFLINE'}
-                                                        </button>
-                                                    </td>
-                                                    <td className="p-4 font-bold text-slate-900 dark:text-slate-200">{route.name}</td>
-                                                    <td className="p-4">
-                                                        <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md font-mono text-sm text-teal-600 dark:text-teal-400">{route.path}</span>
-                                                    </td>
-                                                    <td className="p-4 text-sm text-slate-500 max-w-xs truncate">{route.description || <span className="italic opacity-50">Core system endpoint</span>}</td>
-                                                    <td className="p-4 flex gap-2 justify-end">
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditingRoute(route);
-                                                                setNewRoute({ path: route.path, name: route.name, description: route.description, isActive: route.isActive });
-                                                                setIsEditRouteModalOpen(true);
-                                                            }}
-                                                            className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-500/10 rounded-lg transition"
-                                                        >
-                                                            <Edit className="size-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteRoute(route._id)}
-                                                            disabled={route.path === '/admin'}
-                                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition disabled:opacity-30 disabled:hover:bg-transparent"
-                                                        >
-                                                            <Trash2 className="size-4" />
-                                                        </button>
-                                                    </td>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                            {routes.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={5} className="p-8 text-center text-slate-500">No active system routes parsed. Mount an endpoint to begin.</td>
                                                 </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </motion.div>
-                    )}
+                                            ) : (
+                                                routes.map((route) => (
+                                                    <tr key={route._id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition ${!route.isActive ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}>
+                                                        <td className="p-4">
+                                                            <button
+                                                                onClick={() => handleToggleRoute(route)}
+                                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition ${route.isActive ? 'bg-emerald-100/50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50' : 'bg-red-100/50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50'}`}
+                                                            >
+                                                                <Power className="size-3.5" /> {route.isActive ? 'ONLINE' : 'OFFLINE'}
+                                                            </button>
+                                                        </td>
+                                                        <td className="p-4 font-bold text-slate-900 dark:text-slate-200">{route.name}</td>
+                                                        <td className="p-4">
+                                                            <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md font-mono text-sm text-teal-600 dark:text-teal-400">{route.path}</span>
+                                                        </td>
+                                                        <td className="p-4 text-sm text-slate-500 max-w-xs truncate">{route.description || <span className="italic opacity-50">Core system endpoint</span>}</td>
+                                                        <td className="p-4 flex gap-2 justify-end">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingRoute(route);
+                                                                    setNewRoute({ path: route.path, name: route.name, description: route.description, isActive: route.isActive });
+                                                                    setIsEditRouteModalOpen(true);
+                                                                }}
+                                                                className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-500/10 rounded-lg transition"
+                                                            >
+                                                                <Edit className="size-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteRoute(route._id)}
+                                                                disabled={route.path === '/admin'}
+                                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition disabled:opacity-30 disabled:hover:bg-transparent"
+                                                            >
+                                                                <Trash2 className="size-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </motion.div>
+                        )}
 
+                    </div>
                 </div>
             </main>
 
@@ -3032,3 +3080,4 @@ function StatCard({ title, value, icon, bg }: { title: string, value: string | n
 }
 
 export default AdminDashboard;
+

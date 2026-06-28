@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import Hero from "./_components/Hero";
-import WhatWeOffer from "./_components/WhatWeOffer";
-import WhoWeAre from "./_components/WhoWeAre";
-import ShopSection from "./_components/ShopSection";
-import Contact from "./_components/Contact";
+import Hero from '@/components/Hero';
+import WhatWeOffer from '@/components/WhatWeOffer';
+import WhoWeAre from '@/components/WhoWeAre';
+import ShopSection from '@/components/ShopSection';
+import Contact from '@/components/Contact';
 
 export default function HomePage() {
   return (
